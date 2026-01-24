@@ -69,7 +69,10 @@ export function SearchBar({
             className="pl-10 pr-4"
           />
         </div>
-        <Button type="submit" variant="default">
+        <Button
+          type="submit"
+          className="bg-green-600 hover:bg-green-700 text-white"
+        >
           Search
         </Button>
       </div>

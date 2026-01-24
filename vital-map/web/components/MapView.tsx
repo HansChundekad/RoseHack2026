@@ -7,7 +7,7 @@
 
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useMemo, memo } from 'react';
 import mapboxgl from 'mapbox-gl';
 import type { Resource } from '@/types/resource';
 import { parsePostGISPoint } from '@/lib/postgis';
@@ -36,11 +36,11 @@ interface MapViewProps {
  * Initializes map, manages markers based on resources array,
  * and handles marker click events.
  */
-export function MapView({
+function MapView({
   resources,
   accessToken,
-  initialCenter = [-122.41, 37.77], // Default: San Francisco
-  initialZoom = 12,
+  initialCenter = [-118.2437, 34.0522], // Default: Los Angeles
+  initialZoom = 11,
   onMapReady,
   onMarkerClick,
   className = '',
@@ -50,7 +50,7 @@ export function MapView({
   const markersRef = useRef<mapboxgl.Marker[]>([]);
   const [isMapReady, setIsMapReady] = useState(false);
 
-  // Initialize map
+  // Initialize map (only once)
   useEffect(() => {
     if (!mapContainer.current || map.current) return;
 
@@ -78,11 +78,32 @@ export function MapView({
         map.current = null;
       }
     };
-  }, [accessToken, initialCenter, initialZoom, onMapReady]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Only run once on mount
+
+  // Memoize resources key to prevent unnecessary effect triggers
+  const resourcesKey = useMemo(() => {
+    return JSON.stringify(
+      resources.map((r) => ({ id: r.id, location: r.location }))
+        .sort((a, b) => a.id.localeCompare(b.id))
+    );
+  }, [resources]);
+
+  // Track previous resources to prevent unnecessary updates
+  const previousResourcesRef = useRef<string>('');
+  const isUpdatingRef = useRef(false);
 
   // Update markers when resources change
   useEffect(() => {
-    if (!map.current || !isMapReady) return;
+    if (!map.current || !isMapReady || isUpdatingRef.current) return;
+
+    // Skip update if resources haven't actually changed
+    if (resourcesKey === previousResourcesRef.current) {
+      return;
+    }
+
+    isUpdatingRef.current = true;
+    previousResourcesRef.current = resourcesKey;
 
     // Clear existing markers
     markersRef.current.forEach((marker) => marker.remove());
@@ -113,7 +134,12 @@ export function MapView({
         );
       }
     });
-  }, [resources, isMapReady, onMarkerClick]);
+
+    // Reset update flag after a brief delay to prevent rapid updates
+    setTimeout(() => {
+      isUpdatingRef.current = false;
+    }, 100);
+  }, [resourcesKey, isMapReady, onMarkerClick]); // Use resourcesKey instead of resources
 
   return (
     <div
@@ -123,3 +149,6 @@ export function MapView({
     />
   );
 }
+
+// Memoize component to prevent unnecessary re-renders
+export default memo(MapView);

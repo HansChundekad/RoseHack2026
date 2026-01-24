@@ -25,13 +25,13 @@ export function createMapMarker(
   const el = document.createElement('div');
   el.className = 'custom-marker';
 
-  // Category color mapping
+  // Category color mapping - Green for farm/community, Blue for clinical/healer
   const categoryColors: Record<string, string> = {
-    clinical: 'bg-blue-500',
-    community: 'bg-green-500',
-    farm: 'bg-amber-500',
-    healer: 'bg-purple-500',
-    event: 'bg-pink-500',
+    clinical: 'bg-blue-600',
+    community: 'bg-green-600',
+    farm: 'bg-green-600',
+    healer: 'bg-blue-500',
+    event: 'bg-green-500',
   };
 
   const categoryColor =

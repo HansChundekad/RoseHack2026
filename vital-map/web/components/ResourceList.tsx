@@ -20,6 +20,10 @@ interface ResourceListProps {
   map?: mapboxgl.Map | null;
   /** Click handler for resource cards */
   onResourceClick?: (resource: Resource) => void;
+  /** Callback to mark programmatic map movement */
+  onProgrammaticMove?: () => void;
+  /** Starting location for distance calculation */
+  startingLocation?: [number, number] | null;
   /** Optional className for styling */
   className?: string;
 }
@@ -35,6 +39,8 @@ export function ResourceList({
   loading = false,
   map,
   onResourceClick,
+  onProgrammaticMove,
+  startingLocation,
   className = '',
 }: ResourceListProps) {
   const handleCardClick = (resource: Resource) => {
@@ -42,6 +48,8 @@ export function ResourceList({
     if (map && resource.location) {
       try {
         const [lng, lat] = parsePostGISPoint(resource.location);
+        // Mark as programmatic move to prevent triggering moveend handler
+        onProgrammaticMove?.();
         map.flyTo({
           center: [lng, lat],
           zoom: 14,
@@ -80,9 +88,6 @@ export function ResourceList({
   return (
     <div className={`h-full overflow-y-auto p-4 space-y-4 ${className}`}>
       <div className="mb-4">
-        <h2 className="text-xl font-semibold text-gray-900">
-          Resources
-        </h2>
         <p className="text-sm text-gray-600">
           {resources.length} {resources.length === 1 ? 'result' : 'results'}
         </p>
@@ -93,6 +98,7 @@ export function ResourceList({
           key={resource.id}
           resource={resource}
           onClick={handleCardClick}
+          startingLocation={startingLocation}
         />
       ))}
     </div>
