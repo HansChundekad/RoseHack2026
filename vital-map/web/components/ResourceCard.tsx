@@ -13,7 +13,7 @@ import { EventIndicator } from './EventIndicator';
 import { ReviewModal } from './ReviewModal';
 import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { MapPin, Send, Phone, Star } from 'lucide-react';
+import { MapPin, Send, Phone, Star, Globe } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { calculateDistance } from '@/lib/geocoding';
 import type { Resource } from '@/types/resource';
@@ -167,6 +167,22 @@ export function ResourceCard({
               onClick={(e) => e.stopPropagation()}
             >
               {resource.phone_number}
+            </a>
+          </div>
+        )}
+
+        {/* Website URL - conditional */}
+        {resource.website_url && (
+          <div className="flex items-center gap-1 text-sm text-gray-600">
+            <Globe className="h-3 w-3" />
+            <a
+              href={resource.website_url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="hover:text-blue-600 hover:underline"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {resource.website_url}
             </a>
           </div>
         )}
