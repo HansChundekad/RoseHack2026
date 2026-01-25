@@ -1,10 +1,11 @@
 /**
  * useResources hook
- * 
+ *
  * Manages resource state and provides functions for spatial and semantic search.
- * All functions call Supabase RPC functions - no mock data fallbacks.
- * 
- * Ready for backend integration - ensure the following RPC functions are implemented:
+ * Connects to PostGIS database via Supabase RPC functions.
+ *
+ * RPC functions used:
+ * - get_all_locations() - Fetch all locations with ST_AsText(geom)
  * - match_locations(min_lng, min_lat, max_lng, max_lat)
  * - semantic_search(query_vector, limit?)
  * - get_happening_now_events()
@@ -13,8 +14,6 @@
 import { useState, useCallback, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 import { textToVector } from '@/lib/vectorSearch';
-import { parsePostGISPoint } from '@/lib/postgis';
-import { mockResources } from '@/lib/mockData';
 import type { Resource, BoundingBox } from '@/types/resource';
 
 interface UseResourcesReturn {
@@ -47,23 +46,42 @@ export function useResources(): UseResourcesReturn {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<Error | null>(null);
 
-  // Load mock data for UI design/testing
+  // Load all locations from database on mount
   useEffect(() => {
-    setLoading(true);
-    // Simulate async loading
-    setTimeout(() => {
-      setResources(mockResources);
-      setLoading(false);
-      console.log(`✅ Loaded ${mockResources.length} mock resources for UI design`);
-    }, 500);
+    const loadResources = async () => {
+      setLoading(true);
+      setError(null);
+
+      try {
+        const { data, error: rpcError } = await supabase.rpc(
+          'get_all_locations'
+        );
+
+        if (rpcError) {
+          throw rpcError;
+        }
+
+        const locations = (data || []) as Resource[];
+        setResources(locations);
+        console.log(`✅ Loaded ${locations.length} locations from database`);
+      } catch (err) {
+        const error = err instanceof Error ? err : new Error('Unknown error');
+        setError(error);
+        console.error('Error loading resources:', error);
+        setResources([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadResources();
   }, []);
 
   /**
    * Spatial search: Find resources within a map bounding box
-   * 
-   * STUB: Calls Supabase RPC function `match_locations`
-   * Backend should implement this function to query PostGIS geometry
-   * 
+   *
+   * Calls Supabase RPC function `match_locations`
+   *
    * @param bounds - Bounding box coordinates
    * @returns Array of resources within the bounds
    */
@@ -73,7 +91,6 @@ export function useResources(): UseResourcesReturn {
       setError(null);
 
       try {
-        // Try RPC function first, fall back to direct query if not available
         const { data, error: rpcError } = await supabase.rpc('match_locations', {
           min_lng: bounds.minLng,
           min_lat: bounds.minLat,
@@ -82,26 +99,7 @@ export function useResources(): UseResourcesReturn {
         });
 
         if (rpcError) {
-          // RPC not implemented yet, use mock data and filter client-side
-          console.warn('RPC match_locations not found, using mock data');
-          
-          // Filter mock resources by bounding box
-          const filtered = mockResources.filter((resource) => {
-            try {
-              const [lng, lat] = parsePostGISPoint(resource.location);
-              return (
-                lng >= bounds.minLng &&
-                lng <= bounds.maxLng &&
-                lat >= bounds.minLat &&
-                lat <= bounds.maxLat
-              );
-            } catch {
-              return false; // Skip invalid locations
-            }
-          });
-
-          setResources(filtered);
-          return filtered;
+          throw rpcError;
         }
 
         const results = (data || []) as Resource[];
@@ -111,7 +109,6 @@ export function useResources(): UseResourcesReturn {
         const error = err instanceof Error ? err : new Error('Unknown error');
         setError(error);
         console.error('Error in matchLocations:', error);
-        // Return empty array on error - no fallback to mock data
         setResources([]);
         return [];
       } finally {
@@ -123,10 +120,9 @@ export function useResources(): UseResourcesReturn {
 
   /**
    * Semantic search: Find resources using vector similarity
-   * 
-   * STUB: Converts query to vector, then calls Supabase RPC `semantic_search`
-   * Backend should implement pgvector similarity search
-   * 
+   *
+   * Converts query to vector, then calls Supabase RPC `semantic_search`
+   *
    * @param queryText - Natural language search query
    * @returns Array of resources ranked by semantic similarity
    */
@@ -136,27 +132,15 @@ export function useResources(): UseResourcesReturn {
       setError(null);
 
       try {
-        // Convert text query to vector embedding
         const queryVector = await textToVector(queryText);
 
-        // Call Supabase RPC `semantic_search`
-        // Expected Supabase RPC signature:
-        // semantic_search(query_vector, limit?)
         const { data, error: rpcError } = await supabase.rpc('semantic_search', {
           query_vector: queryVector,
-          limit: 50, // Optional: limit results
+          limit: 50,
         });
 
         if (rpcError) {
-          // RPC not implemented, use mock data with simple text filtering
-          console.warn('RPC semantic_search not found, using mock data with text filter');
-          const filtered = mockResources.filter((resource) =>
-            resource.name.toLowerCase().includes(queryText.toLowerCase()) ||
-            resource.description.toLowerCase().includes(queryText.toLowerCase()) ||
-            resource.category.toLowerCase().includes(queryText.toLowerCase())
-          );
-          setResources(filtered);
-          return filtered;
+          throw rpcError;
         }
 
         const results = (data || []) as Resource[];
@@ -166,9 +150,8 @@ export function useResources(): UseResourcesReturn {
         const error = err instanceof Error ? err : new Error('Unknown error');
         setError(error);
         console.error('Error in semanticSearch:', error);
-        // Fallback to mock data for UI design
-        setResources(mockResources);
-        return mockResources;
+        setResources([]);
+        return [];
       } finally {
         setLoading(false);
       }
@@ -178,11 +161,9 @@ export function useResources(): UseResourcesReturn {
 
   /**
    * Get resources that are happening now (temporal synchronization)
-   * 
-   * STUB: Calls Supabase RPC `get_happening_now_events`
-   * Backend should filter resources where current time is between
-   * event_start and event_end
-   * 
+   *
+   * Calls Supabase RPC `get_happening_now_events`
+   *
    * @returns Array of resources with active events
    */
   const getHappeningNow = useCallback(async (): Promise<Resource[]> => {
@@ -190,19 +171,12 @@ export function useResources(): UseResourcesReturn {
     setError(null);
 
     try {
-      // Call Supabase RPC `get_happening_now_events`
-      // Expected Supabase RPC signature:
-      // get_happening_now_events()
       const { data, error: rpcError } = await supabase.rpc(
         'get_happening_now_events'
       );
 
       if (rpcError) {
-        // RPC not implemented, use mock data with event resources
-        console.warn('RPC get_happening_now_events not found, using mock data');
-        const eventResources = mockResources.filter((resource) => resource.event_start && resource.event_end);
-        setResources(eventResources);
-        return eventResources;
+        throw rpcError;
       }
 
       const results = (data || []) as Resource[];
@@ -212,10 +186,8 @@ export function useResources(): UseResourcesReturn {
       const error = err instanceof Error ? err : new Error('Unknown error');
       setError(error);
       console.error('Error in getHappeningNow:', error);
-      // Fallback to mock data for UI design
-      const eventResources = mockResources.filter((resource) => resource.event_start && resource.event_end);
-      setResources(eventResources);
-      return eventResources;
+      setResources([]);
+      return [];
     } finally {
       setLoading(false);
     }
