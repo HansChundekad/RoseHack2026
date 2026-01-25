@@ -19,6 +19,8 @@ RETURNS TABLE (
   category text,
   description text,
   website_url text,
+  address text,
+  phone_number text,
   location text,
   created_at timestamptz
 ) AS $$
@@ -30,6 +32,8 @@ BEGIN
     l.category,
     l.description,
     l.website_url,
+    l.address,
+    l.phone_number,
     CASE
       WHEN l.geom IS NOT NULL THEN ST_AsText(l.geom)
       ELSE NULL

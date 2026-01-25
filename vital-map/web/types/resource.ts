@@ -32,6 +32,12 @@ export interface Resource {
   /** Optional website URL */
   website_url?: string;
 
+  /** Physical address of the resource */
+  address: string;
+
+  /** Optional contact phone number */
+  phone_number?: string;
+
   /** Creation timestamp */
   created_at?: string;
 
