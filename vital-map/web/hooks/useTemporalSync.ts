@@ -35,18 +35,32 @@ export function useTemporalSync(): UseTemporalSyncReturn {
    */
   const updateTemporalStatus = useCallback(
     (resources: Resource[]): Resource[] => {
+      // Return early if no resources to avoid unnecessary processing
+      if (resources.length === 0) {
+        return resources;
+      }
+
       const now = new Date();
 
+      // Only update resources that actually have event times
       return resources.map((resource) => {
         // Only check temporal status for resources with event times
         if (!resource.event_start || !resource.event_end) {
+          // Return same object reference if no change needed
+          if (resource.is_happening_now === false) {
+            return resource;
+          }
           return { ...resource, is_happening_now: false };
         }
 
         const startTime = new Date(resource.event_start);
         const endTime = new Date(resource.event_end);
-
         const isHappeningNow = now >= startTime && now <= endTime;
+
+        // Return same object reference if status hasn't changed
+        if (resource.is_happening_now === isHappeningNow) {
+          return resource;
+        }
 
         return { ...resource, is_happening_now: isHappeningNow };
       });

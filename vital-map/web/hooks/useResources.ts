@@ -2,7 +2,12 @@
  * useResources hook
  * 
  * Manages resource state and provides functions for spatial and semantic search.
- * All RPC functions are stubbed and ready for backend integration.
+ * All functions call Supabase RPC functions - no mock data fallbacks.
+ * 
+ * Ready for backend integration - ensure the following RPC functions are implemented:
+ * - match_locations(min_lng, min_lat, max_lng, max_lat)
+ * - semantic_search(query_vector, limit?)
+ * - get_happening_now_events()
  */
 
 import { useState, useCallback } from 'react';
@@ -55,7 +60,7 @@ export function useResources(): UseResourcesReturn {
       setError(null);
 
       try {
-        // TODO: Replace with actual RPC call
+        // Call Supabase RPC function `match_locations`
         // Expected Supabase RPC signature:
         // match_locations(min_lng, min_lat, max_lng, max_lat)
         const { data, error: rpcError } = await supabase.rpc('match_locations', {
@@ -76,7 +81,8 @@ export function useResources(): UseResourcesReturn {
         const error = err instanceof Error ? err : new Error('Unknown error');
         setError(error);
         console.error('Error in matchLocations:', error);
-        // Return empty array on error to prevent UI breakage
+        // Return empty array on error - no fallback to mock data
+        setResources([]);
         return [];
       } finally {
         setLoading(false);
@@ -103,7 +109,7 @@ export function useResources(): UseResourcesReturn {
         // Convert text query to vector embedding
         const queryVector = await textToVector(queryText);
 
-        // TODO: Replace with actual RPC call
+        // Call Supabase RPC `semantic_search`
         // Expected Supabase RPC signature:
         // semantic_search(query_vector, limit?)
         const { data, error: rpcError } = await supabase.rpc('semantic_search', {
@@ -122,6 +128,8 @@ export function useResources(): UseResourcesReturn {
         const error = err instanceof Error ? err : new Error('Unknown error');
         setError(error);
         console.error('Error in semanticSearch:', error);
+        // Return empty array on error - no fallback to mock data
+        setResources([]);
         return [];
       } finally {
         setLoading(false);
@@ -144,7 +152,7 @@ export function useResources(): UseResourcesReturn {
     setError(null);
 
     try {
-      // TODO: Replace with actual RPC call
+      // Call Supabase RPC `get_happening_now_events`
       // Expected Supabase RPC signature:
       // get_happening_now_events()
       const { data, error: rpcError } = await supabase.rpc(
@@ -155,20 +163,20 @@ export function useResources(): UseResourcesReturn {
         throw new Error(`RPC error: ${rpcError.message}`);
       }
 
-        const results = (data || []) as Resource[];
-        setResources(results);
-        return results;
-      } catch (err) {
-        const error = err instanceof Error ? err : new Error('Unknown error');
-        setError(error);
-        console.error('Error in getHappeningNow:', error);
-        return [];
-      } finally {
-        setLoading(false);
-      }
-    },
-    []
-  );
+      const results = (data || []) as Resource[];
+      setResources(results);
+      return results;
+    } catch (err) {
+      const error = err instanceof Error ? err : new Error('Unknown error');
+      setError(error);
+      console.error('Error in getHappeningNow:', error);
+      // Return empty array on error - no fallback to mock data
+      setResources([]);
+      return [];
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   /**
    * Refetch resources using the last used search method

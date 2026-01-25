@@ -10,6 +10,7 @@ import { LoadingSkeleton } from './LoadingSkeleton';
 import type { Resource } from '@/types/resource';
 import type mapboxgl from 'mapbox-gl';
 import { parsePostGISPoint } from '@/lib/postgis';
+import { useMemo } from 'react';
 
 interface ResourceListProps {
   /** Array of resources to display */
@@ -20,6 +21,10 @@ interface ResourceListProps {
   map?: mapboxgl.Map | null;
   /** Click handler for resource cards */
   onResourceClick?: (resource: Resource) => void;
+  /** Callback to mark programmatic map movement */
+  onProgrammaticMove?: () => void;
+  /** Starting location for distance calculation */
+  startingLocation?: [number, number] | null;
   /** Optional className for styling */
   className?: string;
 }
@@ -35,13 +40,31 @@ export function ResourceList({
   loading = false,
   map,
   onResourceClick,
+  onProgrammaticMove,
+  startingLocation,
   className = '',
 }: ResourceListProps) {
+  // Get map center as fallback for distance calculation
+  const mapCenter = useMemo(() => {
+    if (startingLocation) {
+      return startingLocation;
+    }
+    if (map) {
+      const center = map.getCenter();
+      if (center) {
+        return [center.lng, center.lat] as [number, number];
+      }
+    }
+    return null;
+  }, [map, startingLocation]);
+
   const handleCardClick = (resource: Resource) => {
     // Fly to location on map
     if (map && resource.location) {
       try {
         const [lng, lat] = parsePostGISPoint(resource.location);
+        // Mark as programmatic move to prevent triggering moveend handler
+        onProgrammaticMove?.();
         map.flyTo({
           center: [lng, lat],
           zoom: 14,
@@ -80,9 +103,6 @@ export function ResourceList({
   return (
     <div className={`h-full overflow-y-auto p-4 space-y-4 ${className}`}>
       <div className="mb-4">
-        <h2 className="text-xl font-semibold text-gray-900">
-          Resources
-        </h2>
         <p className="text-sm text-gray-600">
           {resources.length} {resources.length === 1 ? 'result' : 'results'}
         </p>
@@ -93,6 +113,7 @@ export function ResourceList({
           key={resource.id}
           resource={resource}
           onClick={handleCardClick}
+          startingLocation={mapCenter}
         />
       ))}
     </div>
