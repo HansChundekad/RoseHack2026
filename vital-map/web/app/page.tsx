@@ -9,17 +9,20 @@
  * - Right map view (60%) for Mapbox GL JS
  */
 
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useMemo } from 'react';
 import { Header } from '@/components/Header';
 import { ResourceList } from '@/components/ResourceList';
-import { MapView } from '@/components/MapView';
+import MapView from '@/components/MapView';
 import { useResources } from '@/hooks/useResources';
 import { useTemporalSync } from '@/hooks/useTemporalSync';
+import { calculateDistance } from '@/lib/geocoding';
+import { parsePostGISPoint } from '@/lib/postgis';
 import type mapboxgl from 'mapbox-gl';
 import type { Resource } from '@/types/resource';
 
 // Header height in pixels (used for viewport calculation)
-const HEADER_HEIGHT = 180;
+// Increased to accommodate starting location input
+const HEADER_HEIGHT = 220;
 
 export default function Home() {
   const [mapInstance, setMapInstance] = useState<mapboxgl.Map | null>(null);
@@ -27,6 +30,9 @@ export default function Home() {
     'all' | 'clinical' | 'community' | 'events'
   >('all');
   const [searchQuery, setSearchQuery] = useState('');
+  const [startingLocation, setStartingLocation] = useState<[number, number] | null>(
+    null
+  );
 
   const {
     resources,
@@ -92,10 +98,49 @@ export default function Home() {
     [getHappeningNow, matchLocations, mapInstance]
   );
 
+  // Track if map movement is programmatic (to prevent infinite loops)
+  const isProgrammaticMove = useRef(false);
+  const moveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Handle starting location set
+  const handleLocationSet = useCallback(
+    (coordinates: [number, number]) => {
+      setStartingLocation(coordinates);
+      if (mapInstance) {
+        mapInstance.flyTo({
+          center: coordinates,
+          zoom: 12,
+          duration: 1000,
+        });
+        // Load resources for new location
+        setTimeout(() => {
+          const bounds = mapInstance.getBounds();
+          if (bounds) {
+            matchLocations({
+              minLng: bounds.getWest(),
+              minLat: bounds.getSouth(),
+              maxLng: bounds.getEast(),
+              maxLat: bounds.getNorth(),
+            });
+          }
+        }, 1100);
+      }
+    },
+    [mapInstance, matchLocations]
+  );
+
   // Handle map ready
   const handleMapReady = useCallback(
     (map: mapboxgl.Map) => {
       setMapInstance(map);
+
+      // If starting location is set, center map there
+      if (startingLocation) {
+        map.flyTo({
+          center: startingLocation,
+          zoom: 12,
+        });
+      }
 
       // Load initial resources for map bounds
       const bounds = map.getBounds();
@@ -108,34 +153,114 @@ export default function Home() {
         });
       }
 
-      // Update resources when map moves (optional - can be throttled)
+      // Update resources when map moves (throttled to prevent excessive updates)
+      // DISABLED TEMPORARILY - Only update on initial load and manual search
+      // Uncomment below to re-enable auto-update on map movement
+      /*
       map.on('moveend', () => {
-        const newBounds = map.getBounds();
-        if (newBounds) {
-          matchLocations({
-            minLng: newBounds.getWest(),
-            minLat: newBounds.getSouth(),
-            maxLng: newBounds.getEast(),
-            maxLat: newBounds.getNorth(),
-          });
+        // Skip if this was a programmatic move (like flyTo)
+        if (isProgrammaticMove.current) {
+          isProgrammaticMove.current = false;
+          return;
         }
+
+        // Clear any pending timeout
+        if (moveTimeoutRef.current) {
+          clearTimeout(moveTimeoutRef.current);
+        }
+
+        // Throttle: wait 1000ms after map stops moving before fetching
+        moveTimeoutRef.current = setTimeout(() => {
+          const newBounds = map.getBounds();
+          if (newBounds) {
+            matchLocations({
+              minLng: newBounds.getWest(),
+              minLat: newBounds.getSouth(),
+              maxLng: newBounds.getEast(),
+              maxLat: newBounds.getNorth(),
+            });
+          }
+        }, 1000);
       });
+      */
     },
-    [matchLocations]
+    [matchLocations, startingLocation]
   );
 
-  // Filter resources by active tab
-  const filteredResources = resources.filter((resource) => {
-    if (activeTab === 'all') return true;
-    if (activeTab === 'clinical') return resource.category === 'clinical';
-    if (activeTab === 'community')
-      return ['community', 'farm', 'healer'].includes(resource.category);
-    if (activeTab === 'events') return resource.category === 'event';
-    return true;
-  });
+  // Filter resources by active tab (memoized to prevent unnecessary recalculations)
+  const filteredResources = useMemo(() => {
+    return resources.filter((resource) => {
+      if (activeTab === 'all') return true;
+      if (activeTab === 'clinical') return resource.category === 'clinical';
+      if (activeTab === 'community')
+        return ['community', 'farm', 'healer'].includes(resource.category);
+      if (activeTab === 'events') return resource.category === 'event';
+      return true;
+    });
+  }, [resources, activeTab]);
 
-  // Update temporal status for filtered resources
-  const resourcesWithTemporalStatus = updateTemporalStatus(filteredResources);
+  // Update temporal status for filtered resources (memoized)
+  // Only update if the resource IDs or event times have changed
+  const resourcesWithTemporalStatus = useMemo(() => {
+    if (filteredResources.length === 0) {
+      return filteredResources;
+    }
+    return updateTemporalStatus(filteredResources);
+  }, [filteredResources, updateTemporalStatus]);
+
+  // Sort resources by distance (primary) and category (secondary)
+  const sortedResources = useMemo(() => {
+    if (!startingLocation || resourcesWithTemporalStatus.length === 0) {
+      return resourcesWithTemporalStatus;
+    }
+
+    // Calculate distance for each resource and add it to a sortable array
+    const resourcesWithDistance = resourcesWithTemporalStatus.map((resource) => {
+      let distance: number | null = null;
+      try {
+        if (resource.location) {
+          const [lng, lat] = parsePostGISPoint(resource.location);
+          distance = calculateDistance(
+            startingLocation[1],
+            startingLocation[0],
+            lat,
+            lng
+          );
+        }
+      } catch {
+        // If distance calculation fails, use a large number so it sorts to the end
+        distance = Infinity;
+      }
+
+      return {
+        resource,
+        distance: distance ?? Infinity,
+      };
+    });
+
+    // Sort by distance (ascending), then by category for same distance
+    const categoryOrder: Record<string, number> = {
+      clinical: 1,
+      community: 2,
+      farm: 3,
+      healer: 4,
+      event: 5,
+    };
+
+    resourcesWithDistance.sort((a, b) => {
+      // Primary sort: distance
+      if (a.distance !== b.distance) {
+        return a.distance - b.distance;
+      }
+      // Secondary sort: category
+      const categoryA = categoryOrder[a.resource.category] || 99;
+      const categoryB = categoryOrder[b.resource.category] || 99;
+      return categoryA - categoryB;
+    });
+
+    // Return just the resources in sorted order
+    return resourcesWithDistance.map((item) => item.resource);
+  }, [resourcesWithTemporalStatus, startingLocation]);
 
   // Handle resource click
   const handleResourceClick = useCallback((resource: Resource) => {
@@ -169,6 +294,8 @@ export default function Home() {
       {/* Fixed Header */}
       <Header
         onSearch={handleSearch}
+        onLocationSet={handleLocationSet}
+        mapboxToken={mapboxToken}
         activeTab={activeTab}
         onTabChange={handleTabChange}
       />
@@ -179,7 +306,7 @@ export default function Home() {
         style={{ marginTop: `${HEADER_HEIGHT}px` }}
       >
         {/* Left Sidebar - Resource List (40%) */}
-        <aside className="w-[40%] border-r bg-muted/50">
+        <aside className="w-[40%] border-r bg-white">
           {error && (
             <div className="p-4 bg-destructive/10 border-b border-destructive/20">
               <p className="text-sm text-destructive">
@@ -188,17 +315,22 @@ export default function Home() {
             </div>
           )}
           <ResourceList
-            resources={resourcesWithTemporalStatus}
+            resources={sortedResources}
             loading={loading}
             map={mapInstance}
             onResourceClick={handleResourceClick}
+            onProgrammaticMove={() => {
+              isProgrammaticMove.current = true;
+            }}
+            startingLocation={startingLocation}
           />
         </aside>
 
         {/* Right Map View (60%) */}
         <section className="flex-1 relative">
           <MapView
-            resources={resourcesWithTemporalStatus}
+            key="map-view" // Stable key to prevent re-mounting
+            resources={sortedResources}
             accessToken={mapboxToken}
             onMapReady={handleMapReady}
             onMarkerClick={handleMarkerClick}
