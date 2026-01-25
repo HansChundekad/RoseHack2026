@@ -14,21 +14,12 @@ class LinkSpider(scrapy.Spider):
 
     custom_settings = {
         'FEEDS': {
-            '../../../urls.json': {
+            '../../urls.json': {
                 'format': 'json',
                 'overwrite': True,
             }
         }
     }
-    
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        # #region agent log
-        try:
-            with open(LOG_PATH, 'a', encoding='utf-8') as f:
-                f.write(json.dumps({"sessionId": "debug-session", "runId": "init", "hypothesisId": "A", "location": "link_spider.py:__init__", "message": "Spider initialized", "data": {"feeds_path": "../../../urls.json", "start_urls_count": len(self.start_urls)}, "timestamp": int(__import__('time').time() * 1000)}) + "\n")
-        except: pass
-        # #endregion
 
     # Hard-coded starting URLs
     start_urls = [
