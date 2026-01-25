@@ -12,6 +12,13 @@ import type mapboxgl from 'mapbox-gl';
 import { parsePostGISPoint } from '@/lib/postgis';
 import { useMemo } from 'react';
 
+interface ReviewStats {
+  [locationId: number]: {
+    averageRating: number;
+    reviewCount: number;
+  };
+}
+
 interface ResourceListProps {
   /** Array of resources to display */
   resources: Resource[];
@@ -25,6 +32,10 @@ interface ResourceListProps {
   onProgrammaticMove?: () => void;
   /** Starting location for distance calculation */
   startingLocation?: [number, number] | null;
+  /** Review statistics per location */
+  reviewStats?: ReviewStats;
+  /** Callback when a review is submitted */
+  onReviewSubmitted?: () => void;
   /** Optional className for styling */
   className?: string;
 }
@@ -42,6 +53,8 @@ export function ResourceList({
   onResourceClick,
   onProgrammaticMove,
   startingLocation,
+  reviewStats = {},
+  onReviewSubmitted,
   className = '',
 }: ResourceListProps) {
   // Get map center as fallback for distance calculation
@@ -114,6 +127,9 @@ export function ResourceList({
           resource={resource}
           onClick={handleCardClick}
           startingLocation={mapCenter}
+          averageRating={reviewStats[resource.id]?.averageRating}
+          reviewCount={reviewStats[resource.id]?.reviewCount}
+          onReviewSubmitted={onReviewSubmitted}
         />
       ))}
     </div>

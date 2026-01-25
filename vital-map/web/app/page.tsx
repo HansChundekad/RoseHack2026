@@ -14,6 +14,7 @@ import { Header } from '@/components/Header';
 import { ResourceList } from '@/components/ResourceList';
 import MapView from '@/components/MapView';
 import { useResources } from '@/hooks/useResources';
+import { useReviewStats } from '@/hooks/useReviewStats';
 import { useTemporalSync } from '@/hooks/useTemporalSync';
 import { calculateDistance } from '@/lib/geocoding';
 import { parsePostGISPoint } from '@/lib/postgis';
@@ -43,6 +44,8 @@ export default function Home() {
     matchLocations,
     getHappeningNow,
   } = useResources();
+
+  const { reviewStats, refetch: refetchReviews } = useReviewStats();
 
   const { updateTemporalStatus } = useTemporalSync();
 
@@ -343,6 +346,8 @@ export default function Home() {
               isProgrammaticMove.current = true;
             }}
             startingLocation={startingLocation}
+            reviewStats={reviewStats}
+            onReviewSubmitted={refetchReviews}
           />
         </aside>
 
