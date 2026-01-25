@@ -15,6 +15,8 @@ import { ResourceList } from '@/components/ResourceList';
 import MapView from '@/components/MapView';
 import { useResources } from '@/hooks/useResources';
 import { useTemporalSync } from '@/hooks/useTemporalSync';
+import { calculateDistance } from '@/lib/geocoding';
+import { parsePostGISPoint } from '@/lib/postgis';
 import type mapboxgl from 'mapbox-gl';
 import type { Resource } from '@/types/resource';
 
@@ -206,6 +208,60 @@ export default function Home() {
     return updateTemporalStatus(filteredResources);
   }, [filteredResources, updateTemporalStatus]);
 
+  // Sort resources by distance (primary) and category (secondary)
+  const sortedResources = useMemo(() => {
+    if (!startingLocation || resourcesWithTemporalStatus.length === 0) {
+      return resourcesWithTemporalStatus;
+    }
+
+    // Calculate distance for each resource and add it to a sortable array
+    const resourcesWithDistance = resourcesWithTemporalStatus.map((resource) => {
+      let distance: number | null = null;
+      try {
+        if (resource.location) {
+          const [lng, lat] = parsePostGISPoint(resource.location);
+          distance = calculateDistance(
+            startingLocation[1],
+            startingLocation[0],
+            lat,
+            lng
+          );
+        }
+      } catch {
+        // If distance calculation fails, use a large number so it sorts to the end
+        distance = Infinity;
+      }
+
+      return {
+        resource,
+        distance: distance ?? Infinity,
+      };
+    });
+
+    // Sort by distance (ascending), then by category for same distance
+    const categoryOrder: Record<string, number> = {
+      clinical: 1,
+      community: 2,
+      farm: 3,
+      healer: 4,
+      event: 5,
+    };
+
+    resourcesWithDistance.sort((a, b) => {
+      // Primary sort: distance
+      if (a.distance !== b.distance) {
+        return a.distance - b.distance;
+      }
+      // Secondary sort: category
+      const categoryA = categoryOrder[a.resource.category] || 99;
+      const categoryB = categoryOrder[b.resource.category] || 99;
+      return categoryA - categoryB;
+    });
+
+    // Return just the resources in sorted order
+    return resourcesWithDistance.map((item) => item.resource);
+  }, [resourcesWithTemporalStatus, startingLocation]);
+
   // Handle resource click
   const handleResourceClick = useCallback((resource: Resource) => {
     console.log('Resource clicked:', resource);
@@ -259,7 +315,7 @@ export default function Home() {
             </div>
           )}
           <ResourceList
-            resources={resourcesWithTemporalStatus}
+            resources={sortedResources}
             loading={loading}
             map={mapInstance}
             onResourceClick={handleResourceClick}
@@ -274,7 +330,7 @@ export default function Home() {
         <section className="flex-1 relative">
           <MapView
             key="map-view" // Stable key to prevent re-mounting
-            resources={resourcesWithTemporalStatus}
+            resources={sortedResources}
             accessToken={mapboxToken}
             onMapReady={handleMapReady}
             onMarkerClick={handleMarkerClick}

@@ -10,6 +10,7 @@ import { LoadingSkeleton } from './LoadingSkeleton';
 import type { Resource } from '@/types/resource';
 import type mapboxgl from 'mapbox-gl';
 import { parsePostGISPoint } from '@/lib/postgis';
+import { useMemo } from 'react';
 
 interface ResourceListProps {
   /** Array of resources to display */
@@ -43,6 +44,20 @@ export function ResourceList({
   startingLocation,
   className = '',
 }: ResourceListProps) {
+  // Get map center as fallback for distance calculation
+  const mapCenter = useMemo(() => {
+    if (startingLocation) {
+      return startingLocation;
+    }
+    if (map) {
+      const center = map.getCenter();
+      if (center) {
+        return [center.lng, center.lat] as [number, number];
+      }
+    }
+    return null;
+  }, [map, startingLocation]);
+
   const handleCardClick = (resource: Resource) => {
     // Fly to location on map
     if (map && resource.location) {
@@ -98,7 +113,7 @@ export function ResourceList({
           key={resource.id}
           resource={resource}
           onClick={handleCardClick}
-          startingLocation={startingLocation}
+          startingLocation={mapCenter}
         />
       ))}
     </div>

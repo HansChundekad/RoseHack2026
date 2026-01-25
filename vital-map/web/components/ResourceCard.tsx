@@ -51,12 +51,13 @@ export function ResourceCard({
     try {
       const [lng, lat] = parsePostGISPoint(resource.location);
       distance = calculateDistance(
-        startingLocation[1],
-        startingLocation[0],
+        startingLocation[1], // lat
+        startingLocation[0], // lng
         lat,
         lng
       );
-    } catch {
+    } catch (error) {
+      console.error('Distance calculation error:', error);
       // Distance calculation failed, continue without it
     }
   }
@@ -113,7 +114,7 @@ export function ResourceCard({
       <CardContent className="space-y-2 pt-0">
         {/* Distance and rating row */}
         <div className="flex items-center gap-3 text-sm">
-          {distance !== null && (
+          {distance !== null && distance !== Infinity && !isNaN(distance) && (
             <span className="text-green-600 font-medium">
               {distance.toFixed(1)} mi
             </span>

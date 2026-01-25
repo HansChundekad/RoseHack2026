@@ -2,13 +2,17 @@
  * useResources hook
  * 
  * Manages resource state and provides functions for spatial and semantic search.
- * All RPC functions are stubbed and ready for backend integration.
+ * All functions call Supabase RPC functions - no mock data fallbacks.
+ * 
+ * Ready for backend integration - ensure the following RPC functions are implemented:
+ * - match_locations(min_lng, min_lat, max_lng, max_lat)
+ * - semantic_search(query_vector, limit?)
+ * - get_happening_now_events()
  */
 
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
 import { textToVector } from '@/lib/vectorSearch';
-import { mockResources } from '@/lib/mockData';
 import type { Resource, BoundingBox } from '@/types/resource';
 
 interface UseResourcesReturn {
@@ -40,21 +44,6 @@ export function useResources(): UseResourcesReturn {
   const [resources, setResources] = useState<Resource[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<Error | null>(null);
-  const [useMockData, setUseMockData] = useState(false);
-
-  // Check if we should use mock data (when Supabase is not configured or RPC fails)
-  useEffect(() => {
-    // Use mock data if Supabase URL is placeholder
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
-    if (
-      !supabaseUrl ||
-      supabaseUrl.includes('placeholder') ||
-      supabaseUrl.includes('example')
-    ) {
-      setUseMockData(true);
-      setResources(mockResources);
-    }
-  }, []);
 
   /**
    * Spatial search: Find resources within a map bounding box
@@ -71,34 +60,7 @@ export function useResources(): UseResourcesReturn {
       setError(null);
 
       try {
-        // Use mock data if enabled
-        if (useMockData) {
-          // Filter mock resources by bounding box (simple check)
-          const filtered = mockResources.filter((resource) => {
-            try {
-              const [lng, lat] = resource.location
-                .replace('POINT(', '')
-                .replace(')', '')
-                .split(' ')
-                .map(Number);
-              return (
-                lng >= bounds.minLng &&
-                lng <= bounds.maxLng &&
-                lat >= bounds.minLat &&
-                lat <= bounds.maxLat
-              );
-            } catch {
-              return true; // Include if we can't parse
-            }
-          });
-          setTimeout(() => {
-            setResources(filtered);
-            setLoading(false);
-          }, 300); // Simulate network delay
-          return filtered;
-        }
-
-        // TODO: Replace with actual RPC call
+        // Call Supabase RPC function `match_locations`
         // Expected Supabase RPC signature:
         // match_locations(min_lng, min_lat, max_lng, max_lat)
         const { data, error: rpcError } = await supabase.rpc('match_locations', {
@@ -109,28 +71,7 @@ export function useResources(): UseResourcesReturn {
         });
 
         if (rpcError) {
-          // Fall back to mock data on RPC error
-          console.warn('RPC error, using mock data:', rpcError.message);
-          setUseMockData(true);
-          const filtered = mockResources.filter((resource) => {
-            try {
-              const [lng, lat] = resource.location
-                .replace('POINT(', '')
-                .replace(')', '')
-                .split(' ')
-                .map(Number);
-              return (
-                lng >= bounds.minLng &&
-                lng <= bounds.maxLng &&
-                lat >= bounds.minLat &&
-                lat <= bounds.maxLat
-              );
-            } catch {
-              return true;
-            }
-          });
-          setResources(filtered);
-          return filtered;
+          throw new Error(`RPC error: ${rpcError.message}`);
         }
 
         const results = (data || []) as Resource[];
@@ -140,15 +81,14 @@ export function useResources(): UseResourcesReturn {
         const error = err instanceof Error ? err : new Error('Unknown error');
         setError(error);
         console.error('Error in matchLocations:', error);
-        // Fall back to mock data on error
-        setUseMockData(true);
-        setResources(mockResources);
-        return mockResources;
+        // Return empty array on error - no fallback to mock data
+        setResources([]);
+        return [];
       } finally {
         setLoading(false);
       }
     },
-    [useMockData]
+    []
   );
 
   /**
@@ -166,27 +106,10 @@ export function useResources(): UseResourcesReturn {
       setError(null);
 
       try {
-        // Use mock data if enabled
-        if (useMockData) {
-          // Simple text matching for mock data
-          const queryLower = queryText.toLowerCase();
-          const filtered = mockResources.filter(
-            (resource) =>
-              resource.name.toLowerCase().includes(queryLower) ||
-              resource.description.toLowerCase().includes(queryLower) ||
-              resource.category.toLowerCase().includes(queryLower)
-          );
-          setTimeout(() => {
-            setResources(filtered.length > 0 ? filtered : mockResources);
-            setLoading(false);
-          }, 300); // Simulate network delay
-          return filtered.length > 0 ? filtered : mockResources;
-        }
-
         // Convert text query to vector embedding
         const queryVector = await textToVector(queryText);
 
-        // TODO: Replace with actual RPC call
+        // Call Supabase RPC `semantic_search`
         // Expected Supabase RPC signature:
         // semantic_search(query_vector, limit?)
         const { data, error: rpcError } = await supabase.rpc('semantic_search', {
@@ -195,17 +118,7 @@ export function useResources(): UseResourcesReturn {
         });
 
         if (rpcError) {
-          // Fall back to mock data on RPC error
-          console.warn('RPC error, using mock data:', rpcError.message);
-          setUseMockData(true);
-          const queryLower = queryText.toLowerCase();
-          const filtered = mockResources.filter(
-            (resource) =>
-              resource.name.toLowerCase().includes(queryLower) ||
-              resource.description.toLowerCase().includes(queryLower)
-          );
-          setResources(filtered.length > 0 ? filtered : mockResources);
-          return filtered.length > 0 ? filtered : mockResources;
+          throw new Error(`RPC error: ${rpcError.message}`);
         }
 
         const results = (data || []) as Resource[];
@@ -215,15 +128,14 @@ export function useResources(): UseResourcesReturn {
         const error = err instanceof Error ? err : new Error('Unknown error');
         setError(error);
         console.error('Error in semanticSearch:', error);
-        // Fall back to mock data
-        setUseMockData(true);
-        setResources(mockResources);
-        return mockResources;
+        // Return empty array on error - no fallback to mock data
+        setResources([]);
+        return [];
       } finally {
         setLoading(false);
       }
     },
-    [useMockData]
+    []
   );
 
   /**
@@ -240,23 +152,7 @@ export function useResources(): UseResourcesReturn {
     setError(null);
 
     try {
-      // Use mock data if enabled
-      if (useMockData) {
-        const now = new Date();
-        const happeningNow = mockResources.filter((resource) => {
-          if (!resource.event_start || !resource.event_end) return false;
-          const start = new Date(resource.event_start);
-          const end = new Date(resource.event_end);
-          return now >= start && now <= end;
-        });
-        setTimeout(() => {
-          setResources(happeningNow);
-          setLoading(false);
-        }, 300);
-        return happeningNow;
-      }
-
-      // TODO: Replace with actual RPC call
+      // Call Supabase RPC `get_happening_now_events`
       // Expected Supabase RPC signature:
       // get_happening_now_events()
       const { data, error: rpcError } = await supabase.rpc(
@@ -264,18 +160,7 @@ export function useResources(): UseResourcesReturn {
       );
 
       if (rpcError) {
-        // Fall back to mock data
-        console.warn('RPC error, using mock data:', rpcError.message);
-        setUseMockData(true);
-        const now = new Date();
-        const happeningNow = mockResources.filter((resource) => {
-          if (!resource.event_start || !resource.event_end) return false;
-          const start = new Date(resource.event_start);
-          const end = new Date(resource.event_end);
-          return now >= start && now <= end;
-        });
-        setResources(happeningNow);
-        return happeningNow;
+        throw new Error(`RPC error: ${rpcError.message}`);
       }
 
       const results = (data || []) as Resource[];
@@ -285,21 +170,13 @@ export function useResources(): UseResourcesReturn {
       const error = err instanceof Error ? err : new Error('Unknown error');
       setError(error);
       console.error('Error in getHappeningNow:', error);
-      // Fall back to mock data
-      setUseMockData(true);
-      const now = new Date();
-      const happeningNow = mockResources.filter((resource) => {
-        if (!resource.event_start || !resource.event_end) return false;
-        const start = new Date(resource.event_start);
-        const end = new Date(resource.event_end);
-        return now >= start && now <= end;
-      });
-      setResources(happeningNow);
-      return happeningNow;
+      // Return empty array on error - no fallback to mock data
+      setResources([]);
+      return [];
     } finally {
       setLoading(false);
     }
-  }, [useMockData]);
+  }, []);
 
   /**
    * Refetch resources using the last used search method
