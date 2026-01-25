@@ -13,8 +13,8 @@
 import { useState, useCallback, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 import { textToVector } from '@/lib/vectorSearch';
-import { loadAllLocations } from '@/lib/database';
 import { parsePostGISPoint } from '@/lib/postgis';
+import { mockResources } from '@/lib/mockData';
 import type { Resource, BoundingBox } from '@/types/resource';
 
 interface UseResourcesReturn {
@@ -47,28 +47,15 @@ export function useResources(): UseResourcesReturn {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<Error | null>(null);
 
-  // Load all locations from database on mount to test connection
+  // Load mock data for UI design/testing
   useEffect(() => {
-    const testConnection = async () => {
-      try {
-        setLoading(true);
-        const locations = await loadAllLocations();
-        if (locations.length > 0) {
-          setResources(locations);
-          console.log(`✅ Database connection successful! Loaded ${locations.length} locations.`);
-        } else {
-          console.warn('⚠️ Database connected but no locations found. Run seed data?');
-        }
-      } catch (err) {
-        const error = err instanceof Error ? err : new Error('Unknown error');
-        setError(error);
-        console.error('❌ Database connection error:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    testConnection();
+    setLoading(true);
+    // Simulate async loading
+    setTimeout(() => {
+      setResources(mockResources);
+      setLoading(false);
+      console.log(`✅ Loaded ${mockResources.length} mock resources for UI design`);
+    }, 500);
   }, []);
 
   /**
@@ -95,16 +82,11 @@ export function useResources(): UseResourcesReturn {
         });
 
         if (rpcError) {
-          // RPC not implemented yet, use direct query
-          console.warn('RPC match_locations not found, loading all locations');
+          // RPC not implemented yet, use mock data and filter client-side
+          console.warn('RPC match_locations not found, using mock data');
           
-          // Load all locations and filter client-side (temporary)
-          // In production, the RPC function should handle spatial filtering
-          const allLocations = await loadAllLocations();
-          
-          // Filter by bounding box in JavaScript
-          // This is temporary - should be done in database with PostGIS
-          const filtered = allLocations.filter((resource) => {
+          // Filter mock resources by bounding box
+          const filtered = mockResources.filter((resource) => {
             try {
               const [lng, lat] = parsePostGISPoint(resource.location);
               return (
@@ -166,7 +148,15 @@ export function useResources(): UseResourcesReturn {
         });
 
         if (rpcError) {
-          throw new Error(`RPC error: ${rpcError.message}`);
+          // RPC not implemented, use mock data with simple text filtering
+          console.warn('RPC semantic_search not found, using mock data with text filter');
+          const filtered = mockResources.filter((resource) =>
+            resource.name.toLowerCase().includes(queryText.toLowerCase()) ||
+            resource.description.toLowerCase().includes(queryText.toLowerCase()) ||
+            resource.category.toLowerCase().includes(queryText.toLowerCase())
+          );
+          setResources(filtered);
+          return filtered;
         }
 
         const results = (data || []) as Resource[];
@@ -176,9 +166,9 @@ export function useResources(): UseResourcesReturn {
         const error = err instanceof Error ? err : new Error('Unknown error');
         setError(error);
         console.error('Error in semanticSearch:', error);
-        // Return empty array on error - no fallback to mock data
-        setResources([]);
-        return [];
+        // Fallback to mock data for UI design
+        setResources(mockResources);
+        return mockResources;
       } finally {
         setLoading(false);
       }
@@ -208,7 +198,11 @@ export function useResources(): UseResourcesReturn {
       );
 
       if (rpcError) {
-        throw new Error(`RPC error: ${rpcError.message}`);
+        // RPC not implemented, use mock data with event resources
+        console.warn('RPC get_happening_now_events not found, using mock data');
+        const eventResources = mockResources.filter((resource) => resource.event_start && resource.event_end);
+        setResources(eventResources);
+        return eventResources;
       }
 
       const results = (data || []) as Resource[];
@@ -218,9 +212,10 @@ export function useResources(): UseResourcesReturn {
       const error = err instanceof Error ? err : new Error('Unknown error');
       setError(error);
       console.error('Error in getHappeningNow:', error);
-      // Return empty array on error - no fallback to mock data
-      setResources([]);
-      return [];
+      // Fallback to mock data for UI design
+      const eventResources = mockResources.filter((resource) => resource.event_start && resource.event_end);
+      setResources(eventResources);
+      return eventResources;
     } finally {
       setLoading(false);
     }
