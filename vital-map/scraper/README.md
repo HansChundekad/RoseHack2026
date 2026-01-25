@@ -38,11 +38,15 @@ The scraper can process multiple URLs from a JSON file. Create a `urls.json` fil
 
 ```json
 [
-  "https://example.com/restaurant",
-  "https://example.com/clinic",
-  "https://example.com/shop"
+  {"url": "https://example.com/restaurant"},
+  {"url": "https://example.com/clinic"},
+  {"url": "https://example.com/shop"}
 ]
 ```
+
+**Note**: The scraper also supports backward compatibility with old formats:
+- Array of strings: `["url1", "url2"]`
+- Object with urls key: `{"urls": ["url1", "url2"]}`
 
 Then run:
 ```bash
@@ -95,6 +99,14 @@ python scraper.py -o custom_output.json
 python scraper.py --file urls.json --limit 10 --output results.json
 ```
 
+## Validation Rules
+
+Entries are only saved if they have both:
+- **Name**: Non-empty business/location name
+- **Address**: Non-empty street address
+
+Entries missing either field will be skipped and not saved to the output file.
+
 ## Output Format
 
 Results are saved to `scraped_data.json` with the following structure:
@@ -111,10 +123,13 @@ Results are saved to `scraped_data.json` with the following structure:
     "coordinates": {
       "latitude": 0.0,
       "longitude": 0.0
-    }
+    },
+    "semantic_vector": [0.123, -0.456, 0.789, ...]
   }
 ]
 ```
+
+**Note**: The `semantic_vector` field contains a 1536-dimensional embedding vector generated using OpenAI's `text-embedding-3-small` model. This vector is created from the combined text of name, category, description, and address fields, enabling semantic search functionality.
 
 ## Command-Line Options
 
@@ -129,7 +144,10 @@ Results are saved to `scraped_data.json` with the following structure:
 Parses URL content using Jina.ai API and returns extracted text.
 
 ### `extract_info(jina_output: str, source_url: str) -> dict`
-Extracts structured information from Jina.ai output using OpenAI GPT-4o-mini LLM.
+Extracts structured information from Jina.ai output using OpenAI GPT-4o-mini LLM. Automatically generates a semantic vector embedding for each entry.
+
+### `generate_semantic_vector(data: dict) -> list[float] | None`
+Generates a 1536-dimensional semantic vector embedding using OpenAI's text-embedding-3-small model. The embedding is created from the combined text of name, category, description, and address fields.
 
 ### `load_urls_from_file(file_path: Path) -> list[str]`
 Loads URLs from a JSON file. Supports both array format `["url1", "url2"]` and object format `{"urls": ["url1", "url2"]}`.
