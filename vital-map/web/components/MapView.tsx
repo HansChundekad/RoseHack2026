@@ -85,7 +85,7 @@ function MapView({
   const resourcesKey = useMemo(() => {
     return JSON.stringify(
       resources.map((r) => ({ id: r.id, location: r.location }))
-        .sort((a, b) => a.id.localeCompare(b.id))
+        .sort((a, b) => a.id - b.id)
     );
   }, [resources]);
 
