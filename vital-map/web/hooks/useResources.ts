@@ -16,7 +16,6 @@
 
 import { useState, useCallback, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
-import { textToVector } from '@/lib/vectorSearch';
 import type { Resource, BoundingBox } from '@/types/resource';
 
 interface UseResourcesReturn {
@@ -130,25 +129,13 @@ export function useResources(): UseResourcesReturn {
    * @returns Array of resources ranked by semantic similarity
    */
   const semanticSearch = useCallback(
-    async (queryText: string): Promise<Resource[]> => {
+    async (_queryText: string): Promise<Resource[]> => {
       setLoading(true);
       setError(null);
 
       try {
-        const queryVector = await textToVector(queryText);
-
-        const { data, error: rpcError } = await supabase.rpc('semantic_search', {
-          query_vector: queryVector,
-          limit: 50,
-        });
-
-        if (rpcError) {
-          throw rpcError;
-        }
-
-        const results = (data || []) as Resource[];
-        setResources(results);
-        return results;
+        // TODO: Implement embedding generation and semantic search
+        throw new Error('Semantic search not yet implemented - waiting for embedding service');
       } catch (err) {
         const error = err instanceof Error ? err : new Error('Unknown error');
         setError(error);
