@@ -17,6 +17,7 @@ import { useResources } from '@/hooks/useResources';
 import { useTemporalSync } from '@/hooks/useTemporalSync';
 import { calculateDistance } from '@/lib/geocoding';
 import { parsePostGISPoint } from '@/lib/postgis';
+import { generateEmbedding } from '@/lib/embeddings';
 import type mapboxgl from 'mapbox-gl';
 import type { Resource } from '@/types/resource';
 
@@ -54,8 +55,27 @@ export default function Home() {
     async (query: string) => {
       setSearchQuery(query);
       if (query.trim()) {
-        // Perform semantic search
-        await semanticSearch(query);
+        try {
+          // Convert text query to embedding vector
+          const embedding = await generateEmbedding(query);
+
+          // Perform semantic search with the embedding
+          await semanticSearch(embedding);
+        } catch (error) {
+          console.error('Error generating embedding:', error);
+          // Fallback to spatial search if embedding fails
+          if (mapInstance) {
+            const bounds = mapInstance.getBounds();
+            if (bounds) {
+              await matchLocations({
+                minLng: bounds.getWest(),
+                minLat: bounds.getSouth(),
+                maxLng: bounds.getEast(),
+                maxLat: bounds.getNorth(),
+              });
+            }
+          }
+        }
       } else {
         // If no query, load resources for current map bounds
         if (mapInstance) {
