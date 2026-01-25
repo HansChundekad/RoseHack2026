@@ -1,6 +1,6 @@
 # 🌱 TapRoot: A GIS Health and Wellness Information Tool
 TapRoot is a high-performance GIS hub designed to integrate five vital pillars of healing—Ecological, Cultural, Food/Farming, Ecorestoration, and Spirituality—directly into the modern clinical framework. We bridge the gap between "hard" clinical data and "soft" community wisdom to prove that healing the land is a prerequisite for healing the human body.
-🛠️ The Tech Stack
+## 🛠️ The Tech Stack
 | Layer | Technology | Purpose |
 |---|---|---|
 | Frontend/Backend | Next.js | Full-stack framework & API routes. |
