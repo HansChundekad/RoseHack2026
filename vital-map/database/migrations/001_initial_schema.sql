@@ -13,7 +13,7 @@ CREATE TABLE IF NOT EXISTS locations (
     category text NOT NULL,
     description text,
     website_url text,
-    location geography(POINT, 4326) NOT NULL,
+    geom geometry(Point, 4326) NOT NULL,
     embedding vector(1536),
     created_at timestamptz DEFAULT now()
 );
@@ -29,8 +29,8 @@ CREATE TABLE IF NOT EXISTS reviews (
 
 -- Create indexes on locations table
 -- GIST index for spatial queries
-CREATE INDEX IF NOT EXISTS idx_locations_location
-    ON locations USING GIST (location);
+CREATE INDEX IF NOT EXISTS idx_locations_geom
+    ON locations USING GIST (geom);
 
 -- Index on category for filtering
 CREATE INDEX IF NOT EXISTS idx_locations_category
@@ -50,6 +50,6 @@ CREATE INDEX IF NOT EXISTS idx_locations_category
 -- Add comments for documentation
 COMMENT ON TABLE locations IS 'Stores location data with spatial coordinates and vector embeddings';
 COMMENT ON TABLE reviews IS 'Stores user reviews for locations';
-COMMENT ON COLUMN locations.location IS 'Geographic point in WGS84 (latitude/longitude)';
+COMMENT ON COLUMN locations.geom IS 'Geometric point in WGS84 (EPSG:4326) - longitude/latitude';
 COMMENT ON COLUMN locations.embedding IS 'Vector embedding for semantic search (1536 dimensions for OpenAI)';
 COMMENT ON COLUMN reviews.rating IS 'Rating from 1 to 5 stars';
