@@ -59,6 +59,27 @@ export interface Resource {
    * Based on current time vs event_start and event_end
    */
   is_happening_now?: boolean;
+
+  /**
+   * Semantic similarity score (cosine distance)
+   * Range: 0 (identical) to 2 (opposite)
+   * Only present in semantic_search() and hybrid_search() results
+   */
+  similarity_score?: number;
+
+  /**
+   * Geographic distance in meters from search center
+   * Only present in hybrid_search() results
+   */
+  geo_distance?: number;
+
+  /**
+   * Combined normalized ranking score
+   * Range: 0 (perfect match) to 1 (worst match)
+   * Weighted 50/50 between geo and semantic similarity
+   * Only present in hybrid_search() results
+   */
+  combined_score?: number;
 }
 
 /**
