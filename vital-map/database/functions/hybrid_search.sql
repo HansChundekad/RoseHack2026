@@ -21,6 +21,8 @@ RETURNS TABLE (
   category text,
   description text,
   website_url text,
+  address text,
+  phone_number text,
   location text,
   created_at timestamptz,
   similarity_score double precision,
@@ -36,6 +38,8 @@ BEGIN
       l.category,
       l.description,
       l.website_url,
+      l.address,
+      l.phone_number,
       CASE
         WHEN l.geom IS NOT NULL THEN ST_AsText(l.geom)
         ELSE NULL
@@ -68,6 +72,8 @@ BEGIN
     sc.category,
     sc.description,
     sc.website_url,
+    sc.address,
+    sc.phone_number,
     sc.location,
     sc.created_at,
     sc.semantic_dist as similarity_score,

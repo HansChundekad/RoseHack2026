@@ -78,18 +78,18 @@ def scrape_url(url: str) -> str:
         ) from e
 
 
-def generate_semantic_vector(data: Dict[str, Any]) -> Optional[List[float]]:
+def generate_embedding(data: Dict[str, Any]) -> Optional[List[float]]:
     """
-    Generate a semantic vector embedding for the extracted data.
-    
+    Generate an embedding vector for the extracted data.
+
     Creates a text representation from name, category, description, and address,
     then generates an embedding using OpenAI's text-embedding-3-small model.
-    
+
     Args:
         data: Dictionary with extracted information
-        
+
     Returns:
-        List of floats representing the semantic vector (1536 dimensions), or None if failed
+        List of floats representing the embedding (1536 dimensions), or None if failed
     """
     if not OPENAI_API_KEY:
         return None
@@ -259,7 +259,7 @@ Return a JSON object with this structure:
   "coordinates": {{"latitude": 0.0, "longitude": 0.0}}
 }}
 
-Note: The semantic_vector field will be added automatically after extraction.
+Note: The embedding field will be added automatically after extraction.
 
 Web content to extract from:
 {jina_output}"""
@@ -306,16 +306,16 @@ Web content to extract from:
             "address",
             "phone_number",
             "coordinates",
-            "semantic_vector",
+            "embedding",
         ]
 
         # Ensure all required fields exist
         for field in required_fields:
             if field not in extracted_data:
-                if field == "semantic_vector":
-                    # Generate semantic vector if not present
+                if field == "embedding":
+                    # Generate embedding if not present
                     try:
-                        extracted_data[field] = generate_semantic_vector(extracted_data)
+                        extracted_data[field] = generate_embedding(extracted_data)
                     except Exception:
                         extracted_data[field] = None
                 else:
@@ -335,12 +335,12 @@ Web content to extract from:
         # Set website_url to source URL
         extracted_data["website_url"] = source_url
 
-        # Generate semantic vector for the entry
+        # Generate embedding for the entry
         try:
-            semantic_vector = generate_semantic_vector(extracted_data)
-            extracted_data["semantic_vector"] = semantic_vector
+            embedding = generate_embedding(extracted_data)
+            extracted_data["embedding"] = embedding
         except Exception:
-            extracted_data["semantic_vector"] = None
+            extracted_data["embedding"] = None
 
         return extracted_data
 

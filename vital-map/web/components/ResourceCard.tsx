@@ -9,7 +9,7 @@ import { TrustScoreBadge } from './TrustScoreBadge';
 import { EventIndicator } from './EventIndicator';
 import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { MapPin, Send } from 'lucide-react';
+import { MapPin, Send, Phone } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { calculateDistance } from '@/lib/geocoding';
 import type { Resource } from '@/types/resource';
@@ -62,14 +62,20 @@ export function ResourceCard({
     }
   }
 
-  // Format address from location (simplified - in production would use reverse geocoding)
-  const formatAddress = (location: string): string => {
+  // Format address - prefer actual address over coordinates
+  const formatAddress = (location: string | null, address?: string): string => {
+    // If we have a proper address, use it
+    if (address && address.trim()) {
+      return address;
+    }
+
+    // Fall back to coordinates from location
+    if (!location) return 'Location not available';
     try {
       const [lng, lat] = parsePostGISPoint(location);
-      // Simple format - in production, use reverse geocoding
       return `${lat.toFixed(4)}, ${lng.toFixed(4)}`;
     } catch {
-      return 'Location available';
+      return 'Location not available';
     }
   };
 
@@ -137,8 +143,22 @@ export function ResourceCard({
         {/* Address */}
         <div className="flex items-center gap-1 text-sm text-gray-600">
           <MapPin className="h-3 w-3" />
-          <span>{formatAddress(resource.location)}</span>
+          <span>{formatAddress(resource.location, resource.address)}</span>
         </div>
+
+        {/* Phone Number - conditional */}
+        {resource.phone_number && (
+          <div className="flex items-center gap-1 text-sm text-gray-600">
+            <Phone className="h-3 w-3" />
+            <a
+              href={`tel:${resource.phone_number}`}
+              className="hover:text-blue-600 hover:underline"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {resource.phone_number}
+            </a>
+          </div>
+        )}
       </CardContent>
 
       <CardFooter className="pt-2 pb-3">
