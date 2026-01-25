@@ -23,7 +23,7 @@ export function LoadingSkeleton({ count = 3 }: LoadingSkeletonProps) {
   return (
     <div className="space-y-4">
       {Array.from({ length: count }).map((_, index) => (
-        <Card key={index}>
+        <Card key={index} className="bg-white">
           <CardHeader className="pb-3">
             <div className="flex items-start justify-between gap-2">
               <Skeleton className="h-5 w-3/4" />
