@@ -5,6 +5,7 @@
  * Fixed positioning for full-viewport layout.
  */
 
+import Image from 'next/image';
 import { SearchBar } from './SearchBar';
 import { StartingLocationInput } from './StartingLocationInput';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -43,33 +44,55 @@ export function Header({
 
   return (
     <header className="fixed top-0 left-0 right-0 bg-white border-b border-gray-200 z-50">
-      <div className="container mx-auto px-4 py-4">
-        {/* Title */}
-        <div className="mb-4">
-          <h1 className="text-2xl font-bold text-gray-900">
-            Holistic Interoperability Engine
-          </h1>
-          <p className="text-sm text-gray-600">
-            Connecting clinical and community wellness resources
-          </p>
+      {/* Green Banner */}
+      <div className="bg-green-600 w-full py-3">
+        <div className="container mx-auto px-4">
+          <div className="text-center">
+            <h1 className="text-4xl font-bold text-white">
+              TopRoot
+            </h1>
+            <p className="text-sm text-white/90 mt-1">
+              Find your path to wellness
+            </p>
+          </div>
         </div>
-
-        {/* Starting Location Input */}
-        {onLocationSet && mapboxToken && (
-          <div className="mb-3">
-            <StartingLocationInput
-              onLocationSet={onLocationSet}
-              accessToken={mapboxToken}
+      </div>
+      
+      <div className="container mx-auto px-4 py-6">
+        {/* Search Bars - Side by Side with Logo */}
+        <div className="mb-4 flex gap-6 items-end">
+          {/* Logo Image - Positioned on the far left */}
+          <div className="flex-shrink-0 flex items-end -ml-2">
+            <Image
+              src="/logo.png"
+              alt="TopRoot Logo"
+              width={120}
+              height={120}
+              className="object-contain"
+              priority
             />
           </div>
-        )}
 
-        {/* Resource Search Bar */}
-        <div className="mb-4">
-          <SearchBar
-            onSearch={onSearch}
-            placeholder='Search for resources... (e.g., "respiratory recovery", "air quality")'
-          />
+          {/* Starting Location Input */}
+          {onLocationSet && mapboxToken && (
+            <div className="flex-1">
+              <StartingLocationInput
+                onLocationSet={onLocationSet}
+                accessToken={mapboxToken}
+              />
+            </div>
+          )}
+
+          {/* Semantic Search Bar */}
+          <div className="flex-1">
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Search Resources
+            </label>
+            <SearchBar
+              onSearch={onSearch}
+              placeholder='Search for resources... (e.g., "respiratory recovery", "air quality")'
+            />
+          </div>
         </div>
 
         {/* Tabs with green active state */}

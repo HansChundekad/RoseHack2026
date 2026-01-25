@@ -14,6 +14,7 @@ import { cn } from '@/lib/utils';
 import { calculateDistance } from '@/lib/geocoding';
 import type { Resource } from '@/types/resource';
 import { parsePostGISPoint } from '@/lib/postgis';
+import { getBadgeColor, getBorderColor } from '@/lib/categoryColors';
 
 interface ResourceCardProps {
   /** Resource data to display */
@@ -79,24 +80,16 @@ export function ResourceCard({
     }
   };
 
-  // Category color mapping - Green for farm/community, Blue for clinical
-  const getCategoryBadgeStyle = (category: string) => {
-    if (category === 'farm' || category === 'community') {
-      return 'bg-green-600 text-white';
-    }
-    if (category === 'clinical') {
-      return 'bg-blue-600 text-white';
-    }
-    if (category === 'healer') {
-      return 'bg-blue-500 text-white';
-    }
-    return 'bg-gray-600 text-white';
-  };
+  // Get category-specific colors
+  const badgeColor = getBadgeColor(resource.category);
+  const borderColor = getBorderColor(resource.category);
 
   return (
     <Card
       className={cn(
-        'hover:shadow-md transition-shadow cursor-pointer bg-white border-gray-200',
+        'hover:shadow-md transition-shadow cursor-pointer bg-white',
+        borderColor,
+        'border-l-4', // Left border accent in category color
         className
       )}
       onClick={() => onClick?.(resource)}
@@ -109,7 +102,7 @@ export function ResourceCard({
           <Badge
             className={cn(
               'text-xs font-medium px-2 py-1',
-              getCategoryBadgeStyle(resource.category)
+              badgeColor
             )}
           >
             {resource.category}
