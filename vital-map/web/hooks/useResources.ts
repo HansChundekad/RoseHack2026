@@ -10,9 +10,11 @@
  * - get_happening_now_events()
  */
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 import { textToVector } from '@/lib/vectorSearch';
+import { loadAllLocations } from '@/lib/database';
+import { parsePostGISPoint } from '@/lib/postgis';
 import type { Resource, BoundingBox } from '@/types/resource';
 
 interface UseResourcesReturn {
@@ -45,6 +47,30 @@ export function useResources(): UseResourcesReturn {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<Error | null>(null);
 
+  // Load all locations from database on mount to test connection
+  useEffect(() => {
+    const testConnection = async () => {
+      try {
+        setLoading(true);
+        const locations = await loadAllLocations();
+        if (locations.length > 0) {
+          setResources(locations);
+          console.log(`✅ Database connection successful! Loaded ${locations.length} locations.`);
+        } else {
+          console.warn('⚠️ Database connected but no locations found. Run seed data?');
+        }
+      } catch (err) {
+        const error = err instanceof Error ? err : new Error('Unknown error');
+        setError(error);
+        console.error('❌ Database connection error:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    testConnection();
+  }, []);
+
   /**
    * Spatial search: Find resources within a map bounding box
    * 
@@ -60,9 +86,7 @@ export function useResources(): UseResourcesReturn {
       setError(null);
 
       try {
-        // Call Supabase RPC function `match_locations`
-        // Expected Supabase RPC signature:
-        // match_locations(min_lng, min_lat, max_lng, max_lat)
+        // Try RPC function first, fall back to direct query if not available
         const { data, error: rpcError } = await supabase.rpc('match_locations', {
           min_lng: bounds.minLng,
           min_lat: bounds.minLat,
@@ -71,7 +95,31 @@ export function useResources(): UseResourcesReturn {
         });
 
         if (rpcError) {
-          throw new Error(`RPC error: ${rpcError.message}`);
+          // RPC not implemented yet, use direct query
+          console.warn('RPC match_locations not found, loading all locations');
+          
+          // Load all locations and filter client-side (temporary)
+          // In production, the RPC function should handle spatial filtering
+          const allLocations = await loadAllLocations();
+          
+          // Filter by bounding box in JavaScript
+          // This is temporary - should be done in database with PostGIS
+          const filtered = allLocations.filter((resource) => {
+            try {
+              const [lng, lat] = parsePostGISPoint(resource.location);
+              return (
+                lng >= bounds.minLng &&
+                lng <= bounds.maxLng &&
+                lat >= bounds.minLat &&
+                lat <= bounds.maxLat
+              );
+            } catch {
+              return false; // Skip invalid locations
+            }
+          });
+
+          setResources(filtered);
+          return filtered;
         }
 
         const results = (data || []) as Resource[];
