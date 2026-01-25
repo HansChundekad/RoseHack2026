@@ -3,7 +3,7 @@
 Web scraper using Jina.ai and OpenAI ChatGPT
 
 Scrapes URLs using Jina.ai API and extracts structured information
-using OpenAI GPT-4o-mini (cheapest and fastest model). Outputs results to JSON file.
+using OpenAI GPT-4o-mini (cheapest and fastest model). Outputs to Supabase.
 """
 
 import os
@@ -17,6 +17,8 @@ from urllib.parse import urlparse
 import requests
 from openai import OpenAI
 from dotenv import load_dotenv
+from pydantic import BaseModel, Field, field_validator, ValidationError
+from supabase import create_client, Client
 
 # Load environment variables from root .env
 root_dir = Path(__file__).parent.parent.parent
@@ -26,10 +28,159 @@ load_dotenv(root_dir / ".env")
 JINA_API_KEY = os.getenv("JINA_API_KEY")
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 
-# Output file path
-OUTPUT_FILE = Path(__file__).parent / "scraped_data.json"
+# Mapbox configuration (for geocoding fallback)
+MAPBOX_ACCESS_TOKEN = (
+    os.getenv("MAPBOX_ACCESS_TOKEN") or
+    os.getenv("NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN")
+)
+
+# Supabase configuration
+# Falls back to NEXT_PUBLIC_SUPABASE_URL if SUPABASE_URL not set
+SUPABASE_URL = os.getenv("SUPABASE_URL") or os.getenv("NEXT_PUBLIC_SUPABASE_URL")
+SUPABASE_SERVICE_ROLE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
+
 # Input URLs file path
 URLS_FILE = Path(__file__).parent / "urls.json"
+
+# Initialize Supabase client (lazy - created when needed)
+_supabase_client: Optional[Client] = None
+
+
+def get_supabase_client() -> Client:
+    """Get or create Supabase client singleton."""
+    global _supabase_client
+    if _supabase_client is None:
+        if not SUPABASE_URL or not SUPABASE_SERVICE_ROLE_KEY:
+            raise ValueError(
+                "SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY must be set in .env file"
+            )
+        _supabase_client = create_client(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
+    return _supabase_client
+
+
+def geocode_address(address: str) -> Optional[str]:
+    """
+    Convert address to WKT POINT format using Mapbox Geocoding API.
+
+    Args:
+        address: Full street address to geocode
+
+    Returns:
+        WKT POINT string "POINT(lon lat)" or None if geocoding fails
+    """
+    if not MAPBOX_ACCESS_TOKEN:
+        print("⚠️  MAPBOX_ACCESS_TOKEN not set, skipping geocoding", file=sys.stderr)
+        return None
+
+    if not address or not address.strip():
+        return None
+
+    try:
+        # Mapbox Geocoding API endpoint
+        url = "https://api.mapbox.com/geocoding/v5/mapbox.places/{}.json".format(
+            requests.utils.quote(address.strip())
+        )
+        params = {
+            "access_token": MAPBOX_ACCESS_TOKEN,
+            "limit": 1,
+            "types": "address,poi",
+        }
+
+        response = requests.get(url, params=params, timeout=10)
+        response.raise_for_status()
+
+        data = response.json()
+        features = data.get("features", [])
+
+        if not features:
+            print(f"⚠️  No geocoding results for: {address[:50]}...", file=sys.stderr)
+            return None
+
+        # Extract coordinates [longitude, latitude]
+        coords = features[0].get("center")
+        if not coords or len(coords) != 2:
+            return None
+
+        lon, lat = coords[0], coords[1]
+
+        # Validate coordinate ranges
+        if not (-180 <= lon <= 180 and -90 <= lat <= 90):
+            print(f"⚠️  Invalid coordinates from geocoding: {lon}, {lat}", file=sys.stderr)
+            return None
+
+        return f"POINT({lon} {lat})"
+
+    except requests.exceptions.RequestException as e:
+        print(f"⚠️  Geocoding API error: {e}", file=sys.stderr)
+        return None
+    except (KeyError, IndexError, ValueError) as e:
+        print(f"⚠️  Geocoding parse error: {e}", file=sys.stderr)
+        return None
+
+
+class LocationSchema(BaseModel):
+    """
+    Pydantic schema for location data validation.
+    Matches Supabase locations table schema exactly.
+    """
+    name: str = Field(..., min_length=1, max_length=500)
+    category: str = Field(..., min_length=1, max_length=200)
+    description: Optional[str] = Field(None, max_length=2000)
+    website_url: str = Field(..., min_length=1, max_length=1000)
+    address: str = Field(..., min_length=1, max_length=500)
+    phone_number: Optional[str] = Field(None, max_length=50)
+    geom: str = Field(..., min_length=1)
+    embedding: Optional[List[float]] = Field(None, min_length=1536, max_length=1536)
+
+    @field_validator('geom')
+    @classmethod
+    def validate_geom(cls, v: str) -> str:
+        """Validate WKT POINT format and coordinate ranges."""
+        if not v.startswith('POINT(') or not v.endswith(')'):
+            raise ValueError('geom must be in WKT POINT format: POINT(lon lat)')
+
+        try:
+            coords_str = v[6:-1]
+            parts = coords_str.split()
+            if len(parts) != 2:
+                raise ValueError('POINT must contain exactly 2 coordinates')
+
+            lon, lat = float(parts[0]), float(parts[1])
+
+            if not -180 <= lon <= 180:
+                raise ValueError(f'longitude {lon} out of range [-180, 180]')
+            if not -90 <= lat <= 90:
+                raise ValueError(f'latitude {lat} out of range [-90, 90]')
+
+            return v
+        except (ValueError, IndexError) as e:
+            raise ValueError(f'Invalid POINT format: {e}')
+
+    @field_validator('embedding')
+    @classmethod
+    def validate_embedding(cls, v: Optional[List[float]]) -> Optional[List[float]]:
+        """Validate embedding has exactly 1536 dimensions."""
+        if v is None:
+            return None
+        if len(v) != 1536:
+            raise ValueError(f'embedding must have 1536 dimensions, got {len(v)}')
+        return v
+
+    @field_validator('name', 'category', 'address', 'website_url')
+    @classmethod
+    def validate_not_empty(cls, v: str) -> str:
+        """Ensure required string fields are not empty after stripping."""
+        if not v or not v.strip():
+            raise ValueError('field cannot be empty')
+        return v.strip()
+
+    @field_validator('phone_number', 'description')
+    @classmethod
+    def validate_optional_strings(cls, v: Optional[str]) -> Optional[str]:
+        """Strip whitespace from optional string fields."""
+        if v is None or not v.strip():
+            return None
+        return v.strip()
 
 
 def scrape_url(url: str) -> str:
@@ -238,28 +389,37 @@ def extract_info(
     # Emphasize extracting COMPLETE street addresses
     prompt = f"""Extract information from web content and return it as a JSON object.
 
-Rules:
-2. Infer specific category (e.g., "Italian Restaurant", "Dental Clinic")
-3. Extract coordinates only if explicitly visible as numbers (latitude/longitude); otherwise use null
-4. Return ONLY valid JSON object, no markdown or additional text
-5. If you see a partial address like "Los Angeles, CA", look nearby for the street number and name
+CRITICAL REQUIREMENTS:
+1. Business name must exist (required)
+2. Complete street address with street number AND postal code (required)
+3. Coordinates are OPTIONAL - only extract if explicitly visible
 
-STRICT ADDRESS EXTRACTION RULES:
-1. must have a street number
-2. a postal code 
+COORDINATE EXTRACTION (if available):
+- Search for explicit latitude/longitude values in the content
+- Check for Google Maps links, embedded maps, or location metadata
+- Format as: "POINT(longitude latitude)" - LONGITUDE FIRST, then LATITUDE
+- Example: For latitude 34.0522, longitude -118.2437 → "POINT(-118.2437 34.0522)"
+- If coordinates are NOT found, set geom to null (we will geocode from address)
+
+ADDRESS EXTRACTION (required):
+- Must include street number, street name, city, state, and ZIP code
+- Example: "123 Main St, Los Angeles, CA 90012"
+- Partial addresses (e.g., just "Los Angeles, CA") are NOT acceptable
 
 Return a JSON object with this structure:
 {{
   "name": "Business name or null",
-  "category": "Inferred category",
-  "description": "1-2 sentence summary",
+  "category": "Inferred specific category (e.g., Italian Restaurant, Dental Clinic)",
+  "description": "1-2 sentence summary or null",
   "website_url": "{source_url}",
-  "address": "COMPLETE street address with number, street, city, state, ZIP or null",
-  "phone_number": "Phone or null",
-  "coordinates": {{"latitude": 0.0, "longitude": 0.0}}
+  "address": "COMPLETE street address or null",
+  "phone_number": "Phone number or null",
+  "geom": "POINT(-118.2437 34.0522) or null"
 }}
 
-Note: The embedding field will be added automatically after extraction.
+IMPORTANT: Name and address are REQUIRED. If either cannot be found, return null for ALL fields.
+Geom is optional - set to null if coordinates are not visible on the page.
+The embedding field will be added automatically after extraction.
 
 Web content to extract from:
 {jina_output}"""
@@ -305,7 +465,7 @@ Web content to extract from:
             "website_url",
             "address",
             "phone_number",
-            "coordinates",
+            "geom",
             "embedding",
         ]
 
@@ -321,16 +481,34 @@ Web content to extract from:
                 else:
                     extracted_data[field] = None
 
-        # Ensure coordinates structure
-        if "coordinates" not in extracted_data or not isinstance(
-            extracted_data["coordinates"], dict
-        ):
-            extracted_data["coordinates"] = {"latitude": None, "longitude": None}
+        # Validate geom is in WKT POINT format
+        geom = extracted_data.get("geom")
+        if not geom or not isinstance(geom, str):
+            extracted_data["geom"] = None
+        elif not geom.startswith("POINT(") or not geom.endswith(")"):
+            extracted_data["geom"] = None
         else:
-            if "latitude" not in extracted_data["coordinates"]:
-                extracted_data["coordinates"]["latitude"] = None
-            if "longitude" not in extracted_data["coordinates"]:
-                extracted_data["coordinates"]["longitude"] = None
+            # Basic WKT format validation: "POINT(lon lat)"
+            try:
+                coords_str = geom[6:-1]  # Remove "POINT(" and ")"
+                parts = coords_str.split()
+                if len(parts) != 2:
+                    extracted_data["geom"] = None
+                else:
+                    lon, lat = float(parts[0]), float(parts[1])
+                    # Validate ranges
+                    if not (-180 <= lon <= 180 and -90 <= lat <= 90):
+                        extracted_data["geom"] = None
+            except (ValueError, IndexError):
+                extracted_data["geom"] = None
+
+        # GEOCODING FALLBACK: If geom is null but address exists, geocode the address
+        if not extracted_data.get("geom") and extracted_data.get("address"):
+            address = extracted_data["address"]
+            if address and isinstance(address, str) and address.strip():
+                geocoded_geom = geocode_address(address)
+                if geocoded_geom:
+                    extracted_data["geom"] = geocoded_geom
 
         # Set website_url to source URL
         extracted_data["website_url"] = source_url
@@ -352,60 +530,65 @@ Web content to extract from:
 
 def is_valid_entry(data: Dict[str, Any]) -> bool:
     """
-    Validate that an entry has required fields (name and address).
-    
-    Args:
-        data: Dictionary with extracted information
-        
-    Returns:
-        True if entry has both name and address (non-empty), False otherwise
-    """
-    name = data.get("name")
-    address = data.get("address")
-    
-    # Both must be present and non-empty (after stripping whitespace)
-    if not name or not isinstance(name, str) or not name.strip():
-        return False
-    if not address or not isinstance(address, str) or not address.strip():
-        return False
-    
-    return True
-
-
-def save_to_file(data: Dict[str, Any]) -> bool:
-    """
-    Save extracted data to JSON file (appends if file exists).
-    Only saves if entry has both name and address.
+    Validate entry using Pydantic schema before database insertion.
 
     Args:
         data: Dictionary with extracted information
-        
+
     Returns:
-        True if saved, False if skipped due to validation
+        True if entry passes all validation rules, False otherwise
+    """
+    try:
+        LocationSchema(**data)
+        return True
+    except ValidationError as e:
+        # Log validation errors for debugging
+        print(f"⚠️  Validation failed: {e}", file=sys.stderr)
+        return False
+
+
+def save_to_supabase(data: Dict[str, Any]) -> bool:
+    """
+    Save extracted data to Supabase using insert_location RPC.
+    Uses upsert logic - reruns with same URL update existing rows.
+
+    Args:
+        data: Dictionary with extracted information
+
+    Returns:
+        True if saved/updated, False if skipped due to validation
     """
     # Validate entry before saving
     if not is_valid_entry(data):
-        return False  # Skip saving invalid entries
-    
+        return False
+
     try:
-        if OUTPUT_FILE.exists():
-            try:
-                with open(OUTPUT_FILE, "r", encoding="utf-8") as f:
-                    existing_data = json.load(f)
-                    if not isinstance(existing_data, list):
-                        existing_data = []
-            except (json.JSONDecodeError, FileNotFoundError, ValueError):
-                existing_data = []
-        else:
-            existing_data = []
+        client = get_supabase_client()
 
-        existing_data.append(data)
+        # Call the insert_location RPC function
+        # This handles upsert logic and bypasses RLS safely
+        result = client.rpc(
+            "insert_location",
+            {
+                "p_name": data.get("name"),
+                "p_category": data.get("category"),
+                "p_description": data.get("description"),
+                "p_website_url": data.get("website_url"),
+                "p_address": data.get("address"),
+                "p_phone_number": data.get("phone_number"),
+                "p_geom": data.get("geom"),
+                "p_embedding": data.get("embedding"),
+            },
+        ).execute()
 
-        with open(OUTPUT_FILE, "w", encoding="utf-8") as f:
-            json.dump(existing_data, f, indent=2, ensure_ascii=False)
-        return True
+        # RPC returns the location ID
+        location_id = result.data
+        if location_id:
+            return True
+        return False
+
     except Exception as e:
-        print(f"❌ Error saving to {OUTPUT_FILE}: {str(e)}", file=sys.stderr)
+        print(f"❌ Error saving to Supabase: {str(e)}", file=sys.stderr)
         raise
 
 
@@ -479,27 +662,25 @@ def save_urls_to_file(file_path: Path, remaining_urls: list[str], original_struc
 def process_url(url: str) -> str:
     """
     Process a single URL: scrape and extract information.
-    
+
     Args:
         url: URL to process
-        
+
     Returns:
-        "saved" if entry was saved, "trashed" if processed but invalid, "failed" if error occurred
+        "saved" if entry was saved to Supabase, "trashed" if invalid, "failed" if error
     """
     try:
         jina_content = scrape_url(url)
         extracted_data = extract_info(jina_content, url)
-        
+
         if extracted_data and isinstance(extracted_data, dict):
-            # Validation happens inside save_to_file()
-            # If entry is invalid (missing name/address), it won't be saved
+            # Validation happens inside save_to_supabase()
+            # Uses upsert - same URL updates existing row
             try:
-                was_saved = save_to_file(extracted_data)
+                was_saved = save_to_supabase(extracted_data)
                 if was_saved:
-                    # Entry was valid and saved
                     return "saved"
                 else:
-                    # Entry was invalid, skipped saving (trashed)
                     return "trashed"
             except Exception as save_error:
                 print(f"❌ Error saving data for {url}: {str(save_error)}", file=sys.stderr)
