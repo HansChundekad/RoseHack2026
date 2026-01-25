@@ -2,21 +2,15 @@
  * useResources hook
  *
  * Manages resource state and provides functions for spatial and semantic search.
- * Connects to PostGIS database via Supabase RPC functions.
+ * Uses JSON data file for simple, fast loading without database dependencies.
  *
- * RPC functions used:
- * - get_all_locations() - Fetch all locations with ST_AsText(geom), excludes embedding vector
- * - match_locations(min_lng, min_lat, max_lng, max_lat) - Spatial search within bounds
- * - semantic_search(query_vector, limit?) - Vector similarity search (server-side only)
- * - get_happening_now_events() - Temporal search for current events
- *
- * Note: Embedding vectors are stored in DB but NOT returned in API responses for performance.
- * They are used only for server-side semantic search operations.
+ * Data source: hospitals.json - Static JSON file with hospital locations
+ * All search functions filter from this JSON data client-side.
  */
 
 import { useState, useCallback, useEffect } from 'react';
-import { supabase } from '@/lib/supabase';
 import type { Resource, BoundingBox } from '@/types/resource';
+import hospitalsData from '@/data/hospitals.json';
 
 interface UseResourcesReturn {
   /** Array of resources currently loaded */
@@ -46,7 +40,7 @@ interface UseResourcesReturn {
  * Custom hook for managing resources
  * 
  * Provides state management and search functions for healthcare/wellness resources.
- * All backend RPC calls are stubbed and ready for integration.
+ * Uses JSON data file for simple, fast loading without database dependencies.
  * 
  * @returns Object with resources state and search functions
  */
@@ -55,24 +49,17 @@ export function useResources(): UseResourcesReturn {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<Error | null>(null);
 
-  // Load all locations from database on mount
+  // Load all locations from JSON file (bypasses Supabase)
   useEffect(() => {
     const loadResources = async () => {
       setLoading(true);
       setError(null);
 
       try {
-        const { data, error: rpcError } = await supabase.rpc(
-          'get_all_locations'
-        );
-
-        if (rpcError) {
-          throw rpcError;
-        }
-
-        const locations = (data || []) as Resource[];
+        // Load from JSON file - simple and fast, no database needed
+        const locations = hospitalsData as Resource[];
         setResources(locations);
-        console.log(`✅ Loaded ${locations.length} locations from database`);
+        console.log(`✅ Loaded ${locations.length} hospital locations from JSON`);
       } catch (err) {
         const error = err instanceof Error ? err : new Error('Unknown error');
         setError(error);
@@ -89,7 +76,7 @@ export function useResources(): UseResourcesReturn {
   /**
    * Spatial search: Find resources within a map bounding box
    *
-   * Calls Supabase RPC function `match_locations`
+   * Filters hospitals from JSON data by bounding box coordinates
    *
    * @param bounds - Bounding box coordinates
    * @returns Array of resources within the bounds
@@ -100,18 +87,25 @@ export function useResources(): UseResourcesReturn {
       setError(null);
 
       try {
-        const { data, error: rpcError } = await supabase.rpc('match_locations', {
-          min_lng: bounds.minLng,
-          min_lat: bounds.minLat,
-          max_lng: bounds.maxLng,
-          max_lat: bounds.maxLat,
+        // Filter hospitals from JSON by bounding box
+        const allLocations = hospitalsData as Resource[];
+        const { parsePostGISPoint } = await import('@/lib/postgis');
+        
+        const results = allLocations.filter((location) => {
+          if (!location.location) return false;
+          try {
+            const [lng, lat] = parsePostGISPoint(location.location);
+            return (
+              lng >= bounds.minLng &&
+              lng <= bounds.maxLng &&
+              lat >= bounds.minLat &&
+              lat <= bounds.maxLat
+            );
+          } catch {
+            return false;
+          }
         });
 
-        if (rpcError) {
-          throw rpcError;
-        }
-
-        const results = (data || []) as Resource[];
         setResources(results);
         return results;
       } catch (err) {
@@ -130,12 +124,12 @@ export function useResources(): UseResourcesReturn {
   /**
    * Semantic search: Find resources using vector similarity
    *
-   * Calls Supabase RPC function `semantic_search`
+   * Returns all hospitals from JSON (simplified - no embeddings in JSON)
    *
-   * @param queryVector - 1536-dimensional embedding vector
-   * @param similarityThreshold - Max cosine distance (default 2.0 = all results)
+   * @param queryVector - 1536-dimensional embedding vector (unused with JSON)
+   * @param similarityThreshold - Max cosine distance (unused with JSON)
    * @param limit - Max number of results (default 50)
-   * @returns Array of resources ranked by semantic similarity
+   * @returns Array of resources
    */
   const semanticSearch = useCallback(
     async (
@@ -147,24 +141,12 @@ export function useResources(): UseResourcesReturn {
       setError(null);
 
       try {
-        // Validate vector dimensions
-        if (queryVector.length !== 1536) {
-          throw new Error(
-            `Invalid vector dimensions: expected 1536, got ${queryVector.length}`
-          );
-        }
-
-        const { data, error: rpcError } = await supabase.rpc('semantic_search', {
-          query_vector: queryVector,
-          similarity_threshold: similarityThreshold,
-          limit_count: limit,
-        });
-
-        if (rpcError) throw rpcError;
-
-        const results = (data || []) as Resource[];
+        // For JSON data, just return all hospitals (no semantic search without embeddings)
+        // In a real implementation, you'd need embeddings in the JSON
+        const allLocations = hospitalsData as Resource[];
+        const results = allLocations.slice(0, limit);
         setResources(results);
-        console.log(`✅ Semantic search returned ${results.length} results`);
+        console.log(`✅ Semantic search returned ${results.length} results (from JSON)`);
         return results;
       } catch (err) {
         const error = err instanceof Error ? err : new Error('Unknown error');
@@ -180,17 +162,17 @@ export function useResources(): UseResourcesReturn {
   );
 
   /**
-   * Hybrid search: Combine geographic proximity and semantic similarity
+   * Hybrid search: Filter by geographic proximity
    *
-   * Calls Supabase RPC function `hybrid_search`
+   * Filters hospitals from JSON by distance from center point
    *
-   * @param queryVector - 1536-dimensional embedding vector
+   * @param queryVector - 1536-dimensional embedding vector (unused with JSON)
    * @param centerLng - Search center longitude
    * @param centerLat - Search center latitude
    * @param radiusMeters - Search radius in meters (default 50000)
-   * @param similarityThreshold - Max cosine distance (default 2.0)
+   * @param similarityThreshold - Max cosine distance (unused with JSON)
    * @param limit - Max number of results (default 50)
-   * @returns Array of resources ranked by combined geo+semantic score
+   * @returns Array of resources sorted by distance
    */
   const hybridSearch = useCallback(
     async (
@@ -205,13 +187,6 @@ export function useResources(): UseResourcesReturn {
       setError(null);
 
       try {
-        // Validate vector dimensions
-        if (queryVector.length !== 1536) {
-          throw new Error(
-            `Invalid vector dimensions: expected 1536, got ${queryVector.length}`
-          );
-        }
-
         // Validate coordinates
         if (centerLng < -180 || centerLng > 180) {
           throw new Error(`Invalid longitude: ${centerLng}`);
@@ -220,20 +195,31 @@ export function useResources(): UseResourcesReturn {
           throw new Error(`Invalid latitude: ${centerLat}`);
         }
 
-        const { data, error: rpcError } = await supabase.rpc('hybrid_search', {
-          query_vector: queryVector,
-          center_lng: centerLng,
-          center_lat: centerLat,
-          radius_meters: radiusMeters,
-          similarity_threshold: similarityThreshold,
-          limit_count: limit,
-        });
+        // Filter hospitals from JSON by distance from center
+        const allLocations = hospitalsData as Resource[];
+        const { parsePostGISPoint } = await import('@/lib/postgis');
+        const { calculateDistance } = await import('@/lib/geocoding');
+        
+        const results = allLocations
+          .map((location) => {
+            if (!location.location) return null;
+            try {
+              const [lng, lat] = parsePostGISPoint(location.location);
+              const distance = calculateDistance(centerLat, centerLng, lat, lng);
+              return { location, distance };
+            } catch {
+              return null;
+            }
+          })
+          .filter((item): item is { location: Resource; distance: number } => 
+            item !== null && item.distance <= radiusMeters / 1609.34 // Convert meters to miles
+          )
+          .sort((a, b) => a.distance - b.distance)
+          .slice(0, limit)
+          .map((item) => item.location);
 
-        if (rpcError) throw rpcError;
-
-        const results = (data || []) as Resource[];
         setResources(results);
-        console.log(`✅ Hybrid search returned ${results.length} results`);
+        console.log(`✅ Hybrid search returned ${results.length} results (from JSON)`);
         return results;
       } catch (err) {
         const error = err instanceof Error ? err : new Error('Unknown error');
@@ -251,7 +237,7 @@ export function useResources(): UseResourcesReturn {
   /**
    * Get resources that are happening now (temporal synchronization)
    *
-   * Calls Supabase RPC `get_happening_now_events`
+   * Returns empty array (hospitals don't have events in JSON data)
    *
    * @returns Array of resources with active events
    */
@@ -260,15 +246,8 @@ export function useResources(): UseResourcesReturn {
     setError(null);
 
     try {
-      const { data, error: rpcError } = await supabase.rpc(
-        'get_happening_now_events'
-      );
-
-      if (rpcError) {
-        throw rpcError;
-      }
-
-      const results = (data || []) as Resource[];
+      // For JSON data, return empty array (hospitals don't have events)
+      const results: Resource[] = [];
       setResources(results);
       return results;
     } catch (err) {
