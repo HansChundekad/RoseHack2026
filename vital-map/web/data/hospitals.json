@@ -1,0 +1,35 @@
+[
+  {
+    "id": 1,
+    "name": "Cedars-Sinai Medical Center",
+    "category": "clinical",
+    "description": "Major medical center in Beverly Grove",
+    "website_url": "https://www.cedars-sinai.org",
+    "address": "8700 Beverly Blvd, Los Angeles, CA 90048",
+    "phone_number": "(310) 423-3277",
+    "location": "POINT(-118.3833 34.0736)",
+    "created_at": "2026-01-25T00:00:00Z"
+  },
+  {
+    "id": 2,
+    "name": "UCLA Medical Center",
+    "category": "clinical",
+    "description": "Academic medical center in Westwood",
+    "website_url": "https://www.uclahealth.org",
+    "address": "757 Westwood Plaza, Los Angeles, CA 90095",
+    "phone_number": "(310) 825-9111",
+    "location": "POINT(-118.4456 34.0689)",
+    "created_at": "2026-01-25T00:00:00Z"
+  },
+  {
+    "id": 3,
+    "name": "Los Angeles County + USC Medical Center",
+    "category": "clinical",
+    "description": "Public hospital in Boyle Heights",
+    "website_url": "https://dhs.lacounty.gov",
+    "address": "1200 N State St, Los Angeles, CA 90033",
+    "phone_number": "(323) 226-2622",
+    "location": "POINT(-118.2064 34.0598)",
+    "created_at": "2026-01-25T00:00:00Z"
+  }
+]
