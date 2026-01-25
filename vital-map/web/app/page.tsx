@@ -24,7 +24,7 @@ import type { Resource } from '@/types/resource';
 
 // Header height in pixels (used for viewport calculation)
 // Accommodates green banner, both search bars on one line, and tabs
-const HEADER_HEIGHT = 250;
+const HEADER_HEIGHT = 230;
 
 export default function Home() {
   const [mapInstance, setMapInstance] = useState<mapboxgl.Map | null>(null);
