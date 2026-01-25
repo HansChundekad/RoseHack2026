@@ -22,8 +22,8 @@ import type mapboxgl from 'mapbox-gl';
 import type { Resource } from '@/types/resource';
 
 // Header height in pixels (used for viewport calculation)
-// Increased to accommodate starting location input
-const HEADER_HEIGHT = 220;
+// Accommodates green banner, both search bars on one line, and tabs
+const HEADER_HEIGHT = 250;
 
 export default function Home() {
   const [mapInstance, setMapInstance] = useState<mapboxgl.Map | null>(null);

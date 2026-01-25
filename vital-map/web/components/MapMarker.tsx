@@ -6,6 +6,7 @@
  */
 
 import type { Resource } from '@/types/resource';
+import { getMarkerColor } from '@/lib/categoryColors';
 
 /**
  * Creates a custom HTML marker element for Mapbox
@@ -25,17 +26,8 @@ export function createMapMarker(
   const el = document.createElement('div');
   el.className = 'custom-marker';
 
-  // Category color mapping - Green for farm/community, Blue for clinical/healer
-  const categoryColors: Record<string, string> = {
-    clinical: 'bg-blue-600',
-    community: 'bg-green-600',
-    farm: 'bg-green-600',
-    healer: 'bg-blue-500',
-    event: 'bg-green-500',
-  };
-
-  const categoryColor =
-    categoryColors[resource.category] || 'bg-gray-500';
+  // Get unique color for this category
+  const categoryColor = getMarkerColor(resource.category);
 
   // Create marker HTML
   el.innerHTML = `
