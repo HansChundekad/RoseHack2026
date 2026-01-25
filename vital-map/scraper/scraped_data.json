@@ -1,0 +1,38 @@
+[
+  {
+    "name": "LA HOMEFARM",
+    "category": "Grocery and Farm Market",
+    "description": "LA HOMEFARM is a neighborhood grocery and farm market, specializing in fresh, naturally grown produce from small, local farms and beautiful home and garden goods.",
+    "website_url": "https://lahomefarm.com/",
+    "address": "3389 Eagle Rock Blvd, Los Angeles, CA 90065",
+    "phone_number": "(323) 474-6323",
+    "coordinates": {
+      "latitude": null,
+      "longitude": null
+    }
+  },
+  {
+    "name": "LA River Farmers' Market",
+    "category": "Farmers Market",
+    "description": "Located at the LA State Historic Park, in Chinatown, Los Angeles, the LA River Farmers’ Market operates THURSDAYS 3pm - 7:30pm and is a gathering place for our diverse community to engage in healthy eating, sustainable living, and cultural heritage.",
+    "website_url": "https://foodaccessla.org/la-river",
+    "address": "1245 N Spring Street, Los Angeles, CA, 90012",
+    "phone_number": null,
+    "coordinates": {
+      "latitude": null,
+      "longitude": null
+    }
+  },
+  {
+    "name": "A Healing Place Wellness Center",
+    "category": "Wellness Center",
+    "description": "A Healing Place Wellness Center offers a plethora of services, including yoga, tai chi, reiki, channeled readings, and more.",
+    "website_url": "https://www.yogchakra.com/places/a-healing-place-wellness-center/",
+    "address": "841 Blossom Hill Road suite 112A, San Jose, California, 95123",
+    "phone_number": null,
+    "coordinates": {
+      "latitude": 37.2507029,
+      "longitude": -121.855084
+    }
+  }
+]
