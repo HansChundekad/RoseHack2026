@@ -11,7 +11,7 @@ import sys
 import json
 import argparse
 from pathlib import Path
-from typing import Dict, Optional, Any
+from typing import Dict, Optional, Any, List
 from urllib.parse import urlparse
 
 import requests
@@ -76,6 +76,57 @@ def scrape_url(url: str) -> str:
         raise requests.exceptions.RequestException(
             f"Jina.ai API error: {str(e)}"
         ) from e
+
+
+def generate_semantic_vector(data: Dict[str, Any]) -> Optional[List[float]]:
+    """
+    Generate a semantic vector embedding for the extracted data.
+    
+    Creates a text representation from name, category, description, and address,
+    then generates an embedding using OpenAI's text-embedding-3-small model.
+    
+    Args:
+        data: Dictionary with extracted information
+        
+    Returns:
+        List of floats representing the semantic vector (1536 dimensions), or None if failed
+    """
+    if not OPENAI_API_KEY:
+        return None
+    
+    # Create a text representation for embedding
+    # Combine relevant fields that should be searchable
+    text_parts = []
+    
+    if data.get("name"):
+        text_parts.append(f"Name: {data['name']}")
+    if data.get("category"):
+        text_parts.append(f"Category: {data['category']}")
+    if data.get("description"):
+        text_parts.append(f"Description: {data['description']}")
+    if data.get("address"):
+        text_parts.append(f"Location: {data['address']}")
+    
+    if not text_parts:
+        return None
+    
+    text_to_embed = " ".join(text_parts)
+    
+    try:
+        client = OpenAI(api_key=OPENAI_API_KEY)
+        
+        # Use text-embedding-3-small (cheapest, 1536 dimensions)
+        # This matches the dimension expected by the frontend
+        response = client.embeddings.create(
+            model="text-embedding-3-small",
+            input=text_to_embed,
+        )
+        
+        embedding = response.data[0].embedding
+        return embedding
+        
+    except Exception as e:
+        return None
 
 
 def extract_info(
@@ -172,20 +223,12 @@ def extract_info(
             
             jina_output = combined_text
             
-            print(
-                f"⚠️  Extracted {len(matches)} keyword matches, "
-                f"created {len(merged_windows)} context windows, "
-                f"reduced from {original_length} to {len(jina_output)} characters"
-            )
+            pass  # Content truncated and prioritized
         else:
             # No keywords found, just take beginning
             jina_output = jina_output[:max_input_chars] + "... [truncated]"
-            print(
-                f"⚠️  No address keywords found, truncated from {original_length} "
-                f"to {max_input_chars} characters (beginning only)"
-            )
     else:
-        print(f"✅ Using full content ({original_length} characters)")
+        pass  # Using full content
 
     # Configure OpenAI
     client = OpenAI(api_key=OPENAI_API_KEY)
@@ -216,24 +259,12 @@ Return a JSON object with this structure:
   "coordinates": {{"latitude": 0.0, "longitude": 0.0}}
 }}
 
+Note: The semantic_vector field will be added automatically after extraction.
+
 Web content to extract from:
 {jina_output}"""
 
-    # Debug output: Show what's being sent to AI
-    print("\n" + "="*80)
-    print("🐛 DEBUG: Content being sent to OpenAI")
-    print("="*80)
-    print("\n📄 Jina.ai Output (first 1000 chars):")
-    print("-" * 80)
-    print(jina_output[:1000] + ("..." if len(jina_output) > 1000 else ""))
-    print(f"\n📊 Full Jina.ai output length: {len(jina_output)} characters")
-    print("\n" + "-"*80)
-    print("\n💬 Full Prompt being sent to OpenAI:")
-    print("-" * 80)
-    system_message = "You are a JSON extraction assistant. Return only valid JSON, no markdown or additional text."
-    print(f"\n[SYSTEM]:\n{system_message}\n")
-    print(f"[USER]:\n{prompt}\n")
-    print("="*80 + "\n")
+    # Debug output removed for performance
 
     try:
         # Use cheapest and fastest OpenAI model: gpt-4o-mini
@@ -275,12 +306,20 @@ Web content to extract from:
             "address",
             "phone_number",
             "coordinates",
+            "semantic_vector",
         ]
 
         # Ensure all required fields exist
         for field in required_fields:
             if field not in extracted_data:
-                extracted_data[field] = None
+                if field == "semantic_vector":
+                    # Generate semantic vector if not present
+                    try:
+                        extracted_data[field] = generate_semantic_vector(extracted_data)
+                    except Exception:
+                        extracted_data[field] = None
+                else:
+                    extracted_data[field] = None
 
         # Ensure coordinates structure
         if "coordinates" not in extracted_data or not isinstance(
@@ -296,6 +335,13 @@ Web content to extract from:
         # Set website_url to source URL
         extracted_data["website_url"] = source_url
 
+        # Generate semantic vector for the entry
+        try:
+            semantic_vector = generate_semantic_vector(extracted_data)
+            extracted_data["semantic_vector"] = semantic_vector
+        except Exception:
+            extracted_data["semantic_vector"] = None
+
         return extracted_data
 
     except json.JSONDecodeError as e:
@@ -304,28 +350,63 @@ Web content to extract from:
         raise Exception(f"OpenAI API error: {str(e)}") from e
 
 
-def save_to_file(data: Dict[str, Any]) -> None:
+def is_valid_entry(data: Dict[str, Any]) -> bool:
+    """
+    Validate that an entry has required fields (name and address).
+    
+    Args:
+        data: Dictionary with extracted information
+        
+    Returns:
+        True if entry has both name and address (non-empty), False otherwise
+    """
+    name = data.get("name")
+    address = data.get("address")
+    
+    # Both must be present and non-empty (after stripping whitespace)
+    if not name or not isinstance(name, str) or not name.strip():
+        return False
+    if not address or not isinstance(address, str) or not address.strip():
+        return False
+    
+    return True
+
+
+def save_to_file(data: Dict[str, Any]) -> bool:
     """
     Save extracted data to JSON file (appends if file exists).
+    Only saves if entry has both name and address.
 
     Args:
         data: Dictionary with extracted information
+        
+    Returns:
+        True if saved, False if skipped due to validation
     """
-    if OUTPUT_FILE.exists():
-        try:
-            with open(OUTPUT_FILE, "r", encoding="utf-8") as f:
-                existing_data = json.load(f)
-                if not isinstance(existing_data, list):
-                    existing_data = []
-        except (json.JSONDecodeError, FileNotFoundError):
+    # Validate entry before saving
+    if not is_valid_entry(data):
+        return False  # Skip saving invalid entries
+    
+    try:
+        if OUTPUT_FILE.exists():
+            try:
+                with open(OUTPUT_FILE, "r", encoding="utf-8") as f:
+                    existing_data = json.load(f)
+                    if not isinstance(existing_data, list):
+                        existing_data = []
+            except (json.JSONDecodeError, FileNotFoundError, ValueError):
+                existing_data = []
+        else:
             existing_data = []
-    else:
-        existing_data = []
 
-    existing_data.append(data)
+        existing_data.append(data)
 
-    with open(OUTPUT_FILE, "w", encoding="utf-8") as f:
-        json.dump(existing_data, f, indent=2, ensure_ascii=False)
+        with open(OUTPUT_FILE, "w", encoding="utf-8") as f:
+            json.dump(existing_data, f, indent=2, ensure_ascii=False)
+        return True
+    except Exception as e:
+        print(f"❌ Error saving to {OUTPUT_FILE}: {str(e)}", file=sys.stderr)
+        raise
 
 
 def load_urls_from_file(file_path: Path) -> tuple[list[str], dict]:
@@ -350,15 +431,20 @@ def load_urls_from_file(file_path: Path) -> tuple[list[str], dict]:
             
         # Handle different JSON formats
         if isinstance(data, list):
-            # Direct list of URLs: ["url1", "url2", ...]
-            urls = [str(url) for url in data if url]
-            original_structure = {"is_list": True, "data": data}
+            if data and isinstance(data[0], dict) and "url" in data[0]:
+                # New format: [{"url": "..."}, {"url": "..."}, ...]
+                urls = [str(item["url"]) for item in data if isinstance(item, dict) and item.get("url")]
+                original_structure = {"format": "objects", "data": data}
+            else:
+                # Old format: ["url1", "url2", ...]
+                urls = [str(url) for url in data if url]
+                original_structure = {"format": "strings", "data": data}
         elif isinstance(data, dict) and "urls" in data:
-            # Object with urls key: {"urls": ["url1", "url2", ...]}
+            # Old format: {"urls": ["url1", "url2", ...]}
             urls = [str(url) for url in data["urls"] if url]
-            original_structure = {"is_list": False, "data": data}
+            original_structure = {"format": "dict_urls", "data": data}
         else:
-            raise ValueError(f"Invalid JSON format in {file_path}. Expected list or object with 'urls' key.")
+            raise ValueError(f"Invalid JSON format in {file_path}. Expected list of objects with 'url' key, list of strings, or object with 'urls' key.")
         
         if not urls:
             raise ValueError(f"No URLs found in {file_path}")
@@ -371,6 +457,7 @@ def load_urls_from_file(file_path: Path) -> tuple[list[str], dict]:
 def save_urls_to_file(file_path: Path, remaining_urls: list[str], original_structure: dict) -> None:
     """
     Save remaining URLs back to the JSON file.
+    Uses new format: [{"url": "..."}, ...]
     
     Args:
         file_path: Path to the JSON file
@@ -378,23 +465,18 @@ def save_urls_to_file(file_path: Path, remaining_urls: list[str], original_struc
         original_structure: Original data structure format
     """
     try:
-        if original_structure["is_list"]:
-            # Save as simple list
-            data = remaining_urls
-        else:
-            # Save as object with urls key
-            data = original_structure["data"].copy()
-            data["urls"] = remaining_urls
+        # Always save in new format: [{"url": "..."}, ...]
+        data = [{"url": url} for url in remaining_urls]
         
         with open(file_path, "w", encoding="utf-8") as f:
             json.dump(data, f, indent=2, ensure_ascii=False)
         
-        print(f"📝 Updated {file_path} - {len(remaining_urls)} URL(s) remaining")
-    except Exception as e:
-        print(f"⚠️  Warning: Could not update {file_path}: {str(e)}")
+        pass  # URLs file updated
+    except Exception:
+        pass  # Failed to update URLs file
 
 
-def process_url(url: str) -> bool:
+def process_url(url: str) -> str:
     """
     Process a single URL: scrape and extract information.
     
@@ -402,36 +484,39 @@ def process_url(url: str) -> bool:
         url: URL to process
         
     Returns:
-        True if successful, False otherwise
+        "saved" if entry was saved, "trashed" if processed but invalid, "failed" if error occurred
     """
     try:
-        print(f"\n{'='*80}")
-        print(f"🔍 Scraping URL: {url}")
-        print(f"{'='*80}")
-        
         jina_content = scrape_url(url)
-        print(f"✅ Scraped {len(jina_content)} characters from URL")
-
-        print("🤖 Extracting structured information with OpenAI...")
         extracted_data = extract_info(jina_content, url)
-        print("✅ Information extracted successfully")
-
-        print(f"\n📋 Extracted Data:")
-        print(json.dumps(extracted_data, indent=2, ensure_ascii=False))
-
-        save_to_file(extracted_data)
-        print(f"✅ Saved data for {url}")
-        return True
+        
+        if extracted_data and isinstance(extracted_data, dict):
+            # Validation happens inside save_to_file()
+            # If entry is invalid (missing name/address), it won't be saved
+            try:
+                was_saved = save_to_file(extracted_data)
+                if was_saved:
+                    # Entry was valid and saved
+                    return "saved"
+                else:
+                    # Entry was invalid, skipped saving (trashed)
+                    return "trashed"
+            except Exception as save_error:
+                print(f"❌ Error saving data for {url}: {str(save_error)}", file=sys.stderr)
+                return "failed"
+        else:
+            print(f"❌ No valid data extracted for {url}", file=sys.stderr)
+            return "failed"
 
     except ValueError as e:
         print(f"❌ Error processing {url}: {str(e)}", file=sys.stderr)
-        return False
+        return "failed"
     except requests.exceptions.RequestException as e:
         print(f"❌ API Error processing {url}: {str(e)}", file=sys.stderr)
-        return False
+        return "failed"
     except Exception as e:
         print(f"❌ Unexpected error processing {url}: {str(e)}", file=sys.stderr)
-        return False
+        return "failed"
 
 
 def main():
@@ -481,57 +566,68 @@ def main():
         # Load from specified file
         urls_file = Path(args.file)
         urls_to_process, original_structure = load_urls_from_file(urls_file)
-        print(f"📄 Loaded {len(urls_to_process)} URLs from {urls_file}")
     elif URLS_FILE.exists():
         # Use default urls.json file
-        urls_file = URLS_FILE
-        urls_to_process, original_structure = load_urls_from_file(URLS_FILE)
-        print(f"📄 Loaded {len(urls_to_process)} URLs from {URLS_FILE}")
+        try:
+            urls_file = URLS_FILE
+            urls_to_process, original_structure = load_urls_from_file(URLS_FILE)
+        except ValueError as e:
+            print(f"❌ Error: {str(e)}", file=sys.stderr)
+            print("   Usage: python scraper.py <url> OR add URLs to urls.json file", file=sys.stderr)
+            sys.exit(1)
     elif args.url:
         # Single URL from command line
         urls_to_process = [args.url]
     else:
-        print("❌ Error: No URL provided and no urls.json file found.")
-        print("   Usage: python scraper.py <url> OR create urls.json file")
+        print("❌ Error: No URL provided and no urls.json file found.", file=sys.stderr)
+        print("   Usage: python scraper.py <url> OR create urls.json file", file=sys.stderr)
         sys.exit(1)
 
     # Apply limit if specified
     if args.limit and args.limit > 0:
-        original_count = len(urls_to_process)
         urls_to_process = urls_to_process[:args.limit]
-        print(f"📊 Limiting to {args.limit} URLs (from {original_count} total)")
-    
-    print(f"\n🚀 Processing {len(urls_to_process)} URL(s)...\n")
 
     # Process each URL
     successful = 0
     failed = 0
+    trashed = 0  # Entries that were processed but failed validation
     successful_urls = []
     failed_urls = []
+    trashed_urls = []  # URLs that were processed but had invalid data
     
     for i, url in enumerate(urls_to_process, 1):
-        print(f"\n📍 Processing {i}/{len(urls_to_process)}")
-        if process_url(url):
+        result = process_url(url)
+        if result == "saved":
             successful += 1
             successful_urls.append(url)
-        else:
+        elif result == "trashed":
+            trashed += 1
+            trashed_urls.append(url)
+        else:  # "failed"
             failed += 1
             failed_urls.append(url)
 
-    # Remove successfully processed URLs from urls.json if using file
-    if urls_file and original_structure and successful_urls:
-        remaining_urls = [url for url in urls_to_process if url not in successful_urls]
-        save_urls_to_file(urls_file, remaining_urls, original_structure)
+    # Remove all processed URLs (both successful and trashed) from urls.json if using file
+    # Only keep URLs that had actual processing errors (API failures, etc.)
+    if urls_file and original_structure:
+        # Remove URLs that were successfully processed OR trashed (validation failures)
+        # Keep only URLs that had actual errors
+        processed_urls = successful_urls + trashed_urls
+        remaining_urls = [url for url in urls_to_process if url not in processed_urls]
+        if processed_urls:
+            save_urls_to_file(urls_file, remaining_urls, original_structure)
 
     # Summary
-    print(f"\n{'='*80}")
-    print(f"📊 Summary:")
-    print(f"   ✅ Successful: {successful}")
-    print(f"   ❌ Failed: {failed}")
-    if urls_file and successful_urls:
-        print(f"   🗑️  Removed {len(successful_urls)} processed URL(s) from {urls_file.name}")
-    print(f"   📁 Output saved to: {OUTPUT_FILE}")
-    print(f"{'='*80}\n")
+    if len(urls_to_process) > 1 or failed > 0 or trashed > 0:
+        summary_parts = []
+        if successful > 0:
+            summary_parts.append(f"{successful} saved")
+        if trashed > 0:
+            summary_parts.append(f"{trashed} trashed")
+        if failed > 0:
+            summary_parts.append(f"{failed} failed")
+        if summary_parts:
+            print(f"Processed {len(urls_to_process)}: {', '.join(summary_parts)}")
 
 
 if __name__ == "__main__":
