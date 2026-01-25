@@ -29,13 +29,6 @@ export interface Resource {
    */
   location: string;
 
-  /**
-   * Semantic vector embedding for similarity search
-   * Array of numbers representing the resource in vector space
-   * Used with pgvector for semantic search queries
-   */
-  semantic_vector?: number[];
-
   /** Optional website URL */
   website_url?: string;
 

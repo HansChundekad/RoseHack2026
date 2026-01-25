@@ -5,10 +5,13 @@
  * Connects to PostGIS database via Supabase RPC functions.
  *
  * RPC functions used:
- * - get_all_locations() - Fetch all locations with ST_AsText(geom)
- * - match_locations(min_lng, min_lat, max_lng, max_lat)
- * - semantic_search(query_vector, limit?)
- * - get_happening_now_events()
+ * - get_all_locations() - Fetch all locations with ST_AsText(geom), excludes embedding vector
+ * - match_locations(min_lng, min_lat, max_lng, max_lat) - Spatial search within bounds
+ * - semantic_search(query_vector, limit?) - Vector similarity search (server-side only)
+ * - get_happening_now_events() - Temporal search for current events
+ *
+ * Note: Embedding vectors are stored in DB but NOT returned in API responses for performance.
+ * They are used only for server-side semantic search operations.
  */
 
 import { useState, useCallback, useEffect } from 'react';
