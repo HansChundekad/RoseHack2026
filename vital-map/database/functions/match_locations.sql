@@ -31,14 +31,14 @@ BEGIN
     l.description,
     l.website_url,
     CASE
-      WHEN l.location IS NOT NULL THEN ST_AsText(l.location::geometry)
+      WHEN l.geom IS NOT NULL THEN ST_AsText(l.geom)
       ELSE NULL
     END as location,
     l.created_at
   FROM locations l
-  WHERE l.location IS NOT NULL
+  WHERE l.geom IS NOT NULL
     AND ST_Intersects(
-      l.location::geometry,
+      l.geom,
       ST_MakeEnvelope(min_lng, min_lat, max_lng, max_lat, 4326)
     )
   ORDER BY l.created_at DESC;
