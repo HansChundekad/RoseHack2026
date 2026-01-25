@@ -53,7 +53,7 @@ interface UseResourcesReturn {
  * Custom hook for managing resources
  * 
  * Provides state management and search functions for healthcare/wellness resources.
- * All backend RPC calls are stubbed and ready for integration.
+ * Loads from Supabase database and merges with hardcoded hospitals from JSON.
  * 
  * @returns Object with resources state and search functions
  */
@@ -104,7 +104,7 @@ export function useResources(): UseResourcesReturn {
   /**
    * Spatial search: Find resources within a map bounding box
    *
-   * Calls Supabase RPC function `match_locations`
+   * Calls Supabase RPC function `match_locations` and merges with hardcoded hospitals
    *
    * @param bounds - Bounding box coordinates
    * @returns Array of resources within the bounds
@@ -167,7 +167,7 @@ export function useResources(): UseResourcesReturn {
   /**
    * Semantic search: Find resources using vector similarity
    *
-   * Calls Supabase RPC function `semantic_search`
+   * Calls Supabase RPC function `semantic_search` and merges with hardcoded hospitals
    *
    * @param queryVector - 1536-dimensional embedding vector
    * @param similarityThreshold - Max cosine distance (default 2.0 = all results)
@@ -224,7 +224,7 @@ export function useResources(): UseResourcesReturn {
   /**
    * Hybrid search: Combine geographic proximity and semantic similarity
    *
-   * Calls Supabase RPC function `hybrid_search`
+   * Calls Supabase RPC function `hybrid_search` and merges with hardcoded hospitals
    *
    * @param queryVector - 1536-dimensional embedding vector
    * @param centerLng - Search center longitude
