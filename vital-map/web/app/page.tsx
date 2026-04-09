@@ -23,7 +23,7 @@ import type { Resource } from '@/types/resource';
 
 // Header height in pixels (used for viewport calculation)
 // Accommodates green banner, both search bars on one line, and tabs
-const HEADER_HEIGHT = 195;
+const HEADER_HEIGHT = 245;
 
 export default function Home() {
   const [mapInstance, setMapInstance] = useState<mapboxgl.Map | null>(null);
@@ -32,6 +32,7 @@ export default function Home() {
   >('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedResourceId, setSelectedResourceId] = useState<number | null>(null);
+  const [hoveredResourceId, setHoveredResourceId] = useState<number | null>(null);
   const [startingLocation, setStartingLocation] = useState<[number, number] | null>(
     null
   );
@@ -354,19 +355,25 @@ export default function Home() {
             }}
             startingLocation={startingLocation}
             selectedResourceId={selectedResourceId}
+            hoveredResourceId={hoveredResourceId}
+            onCardHover={setHoveredResourceId}
             activeTab={activeTab}
           />
         </aside>
 
         {/* Right Map View (60%) */}
-        <section className="flex-1 relative">
-          <MapView
-            key="map-view" // Stable key to prevent re-mounting
-            resources={sortedResources}
-            accessToken={mapboxToken}
-            onMapReady={handleMapReady}
-            onMarkerClick={handleMarkerClick}
-          />
+        <section className="flex-1 relative p-3">
+          <div className="w-full h-full rounded-2xl overflow-hidden shadow-md">
+            <MapView
+              key="map-view"
+              resources={sortedResources}
+              accessToken={mapboxToken}
+              onMapReady={handleMapReady}
+              onMarkerClick={handleMarkerClick}
+              hoveredResourceId={hoveredResourceId}
+              onMarkerHover={setHoveredResourceId}
+            />
+          </div>
         </section>
       </main>
     </div>

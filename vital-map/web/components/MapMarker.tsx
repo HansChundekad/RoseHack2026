@@ -1,38 +1,34 @@
 /**
  * MapMarker component
- * 
+ *
  * Custom HTML marker for Mapbox GL JS that displays resource information.
- * Shows resource name and category on hover/click.
+ * Shows resource name on hover. Uses unified --tp-primary color.
  */
 
 import type { Resource } from '@/types/resource';
-import { getMarkerColor } from '@/lib/categoryColors';
 
 /**
  * Creates a custom HTML marker element for Mapbox
- * 
- * This function creates a DOM element that can be used as a Mapbox marker.
- * The marker displays category-specific styling and shows resource name on hover.
- * 
+ *
  * @param resource - Resource data to display
  * @param onClick - Optional click handler
+ * @param onHover - Optional hover start handler
+ * @param onHoverEnd - Optional hover end handler
  * @returns HTML element for use with Mapbox marker
  */
 export function createMapMarker(
   resource: Resource,
-  onClick?: (resource: Resource) => void
+  onClick?: (resource: Resource) => void,
+  onHover?: (resource: Resource) => void,
+  onHoverEnd?: () => void,
 ): HTMLElement {
-  // Create marker element
   const el = document.createElement('div');
   el.className = 'custom-marker';
+  el.dataset.resourceId = String(resource.id);
 
-  // Get unique color for this category
-  const categoryColor = getMarkerColor(resource.category);
-
-  // Create marker HTML
   el.innerHTML = `
     <div class="relative group">
-      <div class="w-6 h-6 ${categoryColor} rounded-full border-2 border-white shadow-lg cursor-pointer hover:scale-110 transition-transform"></div>
+      <div class="marker-dot w-6 h-6 rounded-full border-2 border-white shadow-lg cursor-pointer transition-transform duration-200" style="background-color: var(--tp-primary)"></div>
       <div class="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
         <div class="bg-gray-900 text-white text-xs rounded px-2 py-1 whitespace-nowrap">
           ${resource.name}
@@ -42,9 +38,14 @@ export function createMapMarker(
     </div>
   `;
 
-  // Add click handler
   if (onClick) {
     el.addEventListener('click', () => onClick(resource));
+  }
+  if (onHover) {
+    el.addEventListener('mouseenter', () => onHover(resource));
+  }
+  if (onHoverEnd) {
+    el.addEventListener('mouseleave', () => onHoverEnd());
   }
 
   return el;

@@ -27,6 +27,10 @@ interface ResourceListProps {
   startingLocation?: [number, number] | null;
   /** ID of the currently selected resource */
   selectedResourceId?: number | null;
+  /** Currently hovered resource ID */
+  hoveredResourceId?: number | null;
+  /** Callback when a card is hovered */
+  onCardHover?: (id: number | null) => void;
   /** Active tab for empty state messaging */
   activeTab?: 'all' | 'clinical' | 'community' | 'events';
   /** Optional className for styling */
@@ -47,6 +51,8 @@ export function ResourceList({
   onProgrammaticMove,
   startingLocation,
   selectedResourceId,
+  hoveredResourceId,
+  onCardHover,
   activeTab = 'all',
   className = '',
 }: ResourceListProps) {
@@ -60,6 +66,15 @@ export function ResourceList({
       el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     }
   }, [selectedResourceId]);
+
+  // Scroll to card when marker is hovered
+  useEffect(() => {
+    if (hoveredResourceId == null) return;
+    const el = cardRefs.current.get(hoveredResourceId);
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+  }, [hoveredResourceId]);
 
   // Get map center as fallback for distance calculation
   const mapCenter = useMemo(() => {
@@ -153,12 +168,6 @@ export function ResourceList({
 
   return (
     <div className={`h-full overflow-y-auto p-4 flex flex-col gap-4 ${className}`}>
-      <div className="mb-4">
-        <p className="text-sm" style={{ color: 'var(--tp-muted)' }}>
-          {resources.length} {resources.length === 1 ? 'result' : 'results'}
-        </p>
-      </div>
-
       {resources.map((resource) => (
         <div
           key={resource.id}
@@ -166,12 +175,15 @@ export function ResourceList({
             if (el) cardRefs.current.set(resource.id, el);
             else cardRefs.current.delete(resource.id);
           }}
+          onMouseEnter={() => onCardHover?.(resource.id)}
+          onMouseLeave={() => onCardHover?.(null)}
         >
           <ResourceCard
             resource={resource}
             onClick={handleCardClick}
             startingLocation={mapCenter}
             isSelected={resource.id === selectedResourceId}
+            isHovered={resource.id === hoveredResourceId}
           />
         </div>
       ))}

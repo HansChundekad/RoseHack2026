@@ -26,6 +26,8 @@ interface ResourceCardProps {
   startingLocation?: [number, number] | null;
   /** Whether this card is currently selected/linked to the map */
   isSelected?: boolean;
+  /** Whether this card is highlighted via marker hover */
+  isHovered?: boolean;
   /** Optional className for styling */
   className?: string;
 }
@@ -42,6 +44,7 @@ export function ResourceCard({
   onClick,
   startingLocation,
   isSelected = false,
+  isHovered = false,
   className = '',
 }: ResourceCardProps) {
 
@@ -88,6 +91,7 @@ export function ResourceCard({
         'rounded-2xl border border-gray-100 shadow-sm',
         'hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 ease-out cursor-pointer',
         isSelected && 'ring-2 ring-(--tp-primary) ring-offset-2',
+        isHovered && 'shadow-md -translate-y-0.5 border-[var(--tp-primary)]',
         className
       )}
       onClick={() => onClick?.(resource)}
