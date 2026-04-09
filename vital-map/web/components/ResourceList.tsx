@@ -90,7 +90,7 @@ export function ResourceList({
   if (resources.length === 0) {
     return (
       <div className={`h-full overflow-y-auto p-4 ${className}`}>
-        <div className="text-center text-gray-500 mt-8">
+        <div className="text-center mt-8" style={{ color: 'var(--tp-muted)' }}>
           <p className="text-lg mb-2">No resources found</p>
           <p className="text-sm">
             Try adjusting your search or map view
@@ -103,7 +103,7 @@ export function ResourceList({
   return (
     <div className={`h-full overflow-y-auto p-4 space-y-4 ${className}`}>
       <div className="mb-4">
-        <p className="text-sm text-gray-600">
+        <p className="text-sm" style={{ color: 'var(--tp-muted)' }}>
           {resources.length} {resources.length === 1 ? 'result' : 'results'}
         </p>
       </div>

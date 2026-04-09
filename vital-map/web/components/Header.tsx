@@ -5,10 +5,9 @@
  * Fixed positioning for full-viewport layout.
  */
 
-import Image from 'next/image';
 import { SearchBar } from './SearchBar';
 import { StartingLocationInput } from './StartingLocationInput';
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
 interface HeaderProps {
@@ -43,36 +42,24 @@ export function Header({
   };
 
   return (
-    <header className="fixed top-0 left-0 right-0 bg-white border-b border-gray-200 z-50">
+    <header className="fixed top-0 left-0 right-0 border-b z-50" style={{ backgroundColor: 'var(--tp-card)', borderColor: 'var(--tp-muted)' }}>
       {/* Green Banner */}
-      <div className="bg-green-600 w-full py-3">
+      <div className="w-full py-8" style={{ backgroundColor: 'var(--tp-primary)' }}>
         <div className="container mx-auto px-4">
           <div className="text-center">
-            <h1 className="text-4xl font-bold text-white">
-              TopRoot
+            <h1 className="text-4xl md:text-5xl font-bold text-white font-display tracking-tight">
+              Taproot
             </h1>
-            <p className="text-sm text-white/90 mt-1">
+            <p className="text-sm font-sans text-white/70 mt-1">
               Find your path to wellness
             </p>
           </div>
         </div>
       </div>
-      
-      <div className="container mx-auto px-4 py-6">
-        {/* Search Bars - Side by Side with Logo */}
-        <div className="mb-4 flex gap-6 items-end">
-          {/* Logo Image - Positioned on the far left */}
-          <div className="flex-shrink-0 flex items-end -ml-2">
-            <Image
-              src="/logo.png"
-              alt="TopRoot Logo"
-              width={120}
-              height={120}
-              className="object-contain"
-              priority
-            />
-          </div>
 
+      <div className="container mx-auto px-4 pt-8 pb-6">
+        {/* Search Bars - Side by Side */}
+        <div className="mb-4 flex gap-6 items-end">
           {/* Starting Location Input */}
           {onLocationSet && mapboxToken && (
             <div className="flex-1">
@@ -85,7 +72,7 @@ export function Header({
 
           {/* Semantic Search Bar */}
           <div className="flex-1">
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="block text-sm font-medium mb-2" style={{ color: 'var(--tp-muted)' }}>
               Search Resources
             </label>
             <SearchBar
@@ -95,35 +82,23 @@ export function Header({
           </div>
         </div>
 
-        {/* Tabs with green active state */}
-        <Tabs value={activeTab} onValueChange={handleTabChange}>
-          <TabsList className="w-full justify-start bg-transparent p-0 h-auto border-b border-gray-200">
-            <TabsTrigger
-              value="all"
-              className="data-[state=active]:border-b-2 data-[state=active]:border-green-600 data-[state=active]:text-green-600 data-[state=active]:bg-transparent rounded-none"
+        {/* Category Tab Pills */}
+        <div className="flex gap-2">
+          {(['all', 'clinical', 'community', 'events'] as const).map((tab) => (
+            <Button
+              key={tab}
+              variant={activeTab === tab ? 'default' : 'outline'}
+              className={cn(
+                'rounded-full px-5 h-9 capitalize',
+                activeTab === tab && 'text-white',
+              )}
+              style={activeTab === tab ? { backgroundColor: 'var(--tp-primary)' } : undefined}
+              onClick={() => handleTabChange(tab)}
             >
-              All
-            </TabsTrigger>
-            <TabsTrigger
-              value="clinical"
-              className="data-[state=active]:border-b-2 data-[state=active]:border-green-600 data-[state=active]:text-green-600 data-[state=active]:bg-transparent rounded-none"
-            >
-              Clinical
-            </TabsTrigger>
-            <TabsTrigger
-              value="community"
-              className="data-[state=active]:border-b-2 data-[state=active]:border-green-600 data-[state=active]:text-green-600 data-[state=active]:bg-transparent rounded-none"
-            >
-              Community
-            </TabsTrigger>
-            <TabsTrigger
-              value="events"
-              className="data-[state=active]:border-b-2 data-[state=active]:border-green-600 data-[state=active]:text-green-600 data-[state=active]:bg-transparent rounded-none"
-            >
-              Events
-            </TabsTrigger>
-          </TabsList>
-        </Tabs>
+              {tab}
+            </Button>
+          ))}
+        </div>
       </div>
     </header>
   );

@@ -87,7 +87,7 @@ export function ResourceCard({
   return (
     <Card
       className={cn(
-        'hover:shadow-md transition-shadow cursor-pointer bg-white',
+        'hover:shadow-md transition-shadow cursor-pointer bg-(--color-card-white)',
         borderColor,
         'border-l-4', // Left border accent in category color
         className
@@ -96,7 +96,10 @@ export function ResourceCard({
     >
       <CardHeader className="pb-2">
         <div className="flex items-start justify-between gap-2">
-          <h3 className="text-base font-semibold flex-1 text-gray-900">
+          <h3
+            className="text-base font-semibold flex-1 font-display"
+            style={{ color: 'var(--tp-text)' }}
+          >
             {resource.name}
           </h3>
           <Badge
@@ -114,14 +117,14 @@ export function ResourceCard({
         {/* Distance and rating row */}
         <div className="flex items-center gap-3 text-sm">
           {distance !== null && distance !== Infinity && !isNaN(distance) && (
-            <span className="text-green-600 font-medium">
+            <span className="font-medium" style={{ color: 'var(--tp-primary)' }}>
               {distance.toFixed(1)} mi
             </span>
           )}
           {resource.trust_score !== undefined && (
             <div className="flex items-center gap-1">
               <span className="text-yellow-500">⭐</span>
-              <span className="text-gray-700">
+              <span style={{ color: 'var(--tp-text)' }}>
                 {resource.trust_score / 20}
               </span>
             </div>
@@ -129,23 +132,24 @@ export function ResourceCard({
         </div>
 
         {/* Description */}
-        <p className="text-sm text-gray-700 leading-relaxed">
+        <p className="text-sm leading-relaxed" style={{ color: 'var(--tp-muted)' }}>
           {truncatedDescription}
         </p>
 
         {/* Address */}
-        <div className="flex items-center gap-1 text-sm text-gray-600">
+        <div className="flex items-center gap-1 text-sm" style={{ color: 'var(--tp-muted)' }}>
           <MapPin className="h-3 w-3" />
           <span>{formatAddress(resource.location, resource.address)}</span>
         </div>
 
         {/* Phone Number - conditional */}
         {resource.phone_number && (
-          <div className="flex items-center gap-1 text-sm text-gray-600">
+          <div className="flex items-center gap-1 text-sm" style={{ color: 'var(--tp-muted)' }}>
             <Phone className="h-3 w-3" />
             <a
               href={`tel:${resource.phone_number}`}
-              className="hover:text-blue-600 hover:underline"
+              className="hover:underline"
+              style={{ color: 'var(--tp-primary)' }}
               onClick={(e) => e.stopPropagation()}
             >
               {resource.phone_number}
@@ -156,7 +160,8 @@ export function ResourceCard({
 
       <CardFooter className="pt-2 pb-3">
         <button
-          className="flex items-center gap-1 text-sm text-green-600 hover:text-green-700 transition-colors"
+          className="flex items-center gap-1 text-sm transition-colors"
+          style={{ color: 'var(--tp-primary)' }}
           onClick={(e) => {
             e.stopPropagation();
             onClick?.(resource);

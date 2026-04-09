@@ -20,11 +20,11 @@ export const categoryColors = {
     hover: 'hover:bg-blue-700',
   },
   community: {
-    marker: 'bg-green-600',
-    badge: 'bg-green-600 text-white',
-    border: 'border-green-600',
-    text: 'text-green-600',
-    hover: 'hover:bg-green-700',
+    marker: 'bg-[#2D8A6E]',
+    badge: 'bg-[#2D8A6E] text-white',
+    border: 'border-[#2D8A6E]',
+    text: 'text-[#2D8A6E]',
+    hover: 'hover:bg-[#1A5C47]',
   },
   farm: {
     marker: 'bg-amber-600',

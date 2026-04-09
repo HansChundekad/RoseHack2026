@@ -296,12 +296,12 @@ export default function Home() {
 
   if (!mapboxToken) {
     return (
-      <div className="flex items-center justify-center h-screen">
+      <div className="flex items-center justify-center h-screen" style={{ backgroundColor: 'var(--tp-bg)' }}>
         <div className="text-center">
-          <h1 className="text-2xl font-bold mb-4">
+          <h1 className="text-2xl font-bold mb-4 font-display" style={{ color: 'var(--tp-text)' }}>
             Mapbox Token Required
           </h1>
-          <p className="text-muted-foreground">
+          <p style={{ color: 'var(--tp-muted)' }}>
             Please set NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN in your .env file
           </p>
         </div>
@@ -326,7 +326,7 @@ export default function Home() {
         style={{ marginTop: `${HEADER_HEIGHT}px` }}
       >
         {/* Left Sidebar - Resource List (40%) */}
-        <aside className="w-[40%] border-r bg-white">
+        <aside className="w-[40%] border-r" style={{ backgroundColor: 'var(--tp-card)' }}>
           {error && (
             <div className="p-4 bg-destructive/10 border-b border-destructive/20">
               <p className="text-sm text-destructive">
