@@ -340,21 +340,29 @@ export default function Home() {
         >
           {/* Tab strip — sticky header of the scrollable area */}
           <div
-            className="shrink-0 flex gap-1.5 md:gap-2 px-3 md:px-4 py-2 overflow-x-auto border-b"
+            className="shrink-0 flex justify-center gap-1 px-2 py-1.5 border-b"
             style={{ borderColor: 'var(--tp-muted)' }}
           >
             {(['all', 'clinical', 'community', 'events'] as const).map((tab) => (
               <Button
                 key={tab}
-                variant={activeTab === tab ? 'default' : 'outline'}
+                variant="ghost"
                 className={cn(
-                  'rounded-full px-3 md:px-5 h-7 md:h-9 text-xs md:text-sm capitalize shrink-0',
-                  activeTab === tab && 'text-white',
+                  'relative rounded-md px-5 md:px-6 h-10 md:h-11 text-xs md:text-sm font-medium capitalize transition-colors duration-200',
+                  activeTab === tab
+                    ? 'text-white hover:text-white'
+                    : 'text-[var(--tp-muted)] hover:text-[var(--tp-text)]',
                 )}
                 style={activeTab === tab ? { backgroundColor: 'var(--tp-primary)' } : undefined}
                 onClick={() => handleTabChange(tab)}
               >
                 {tab}
+                {activeTab === tab && (
+                  <span
+                    className="absolute bottom-0 left-0 right-0 h-0.5 animate-tab-fill"
+                    style={{ backgroundColor: 'var(--tp-primary)' }}
+                  />
+                )}
               </Button>
             ))}
           </div>

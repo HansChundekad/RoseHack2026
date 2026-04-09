@@ -43,8 +43,8 @@ interface MapViewProps {
 function MapView({
   resources,
   accessToken,
-  initialCenter = [-118.2437, 34.0522],
-  initialZoom = 11,
+  initialCenter = [-118.2437, 33.95],
+  initialZoom = 8,
   onMapReady,
   onMarkerClick,
   hoveredResourceId,

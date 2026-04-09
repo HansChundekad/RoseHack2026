@@ -129,3 +129,14 @@ body {
 .animate-mobile-sheet {
   animation: slide-up 0.8s cubic-bezier(0.16, 1, 0.3, 1) 0.35s both;
 }
+
+/* Tab fill animation */
+@keyframes tab-fill {
+  from { transform: scaleX(0); }
+  to { transform: scaleX(1); }
+}
+
+.animate-tab-fill {
+  animation: tab-fill 0.25s cubic-bezier(0.16, 1, 0.3, 1) both;
+  transform-origin: left;
+}
