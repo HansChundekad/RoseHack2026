@@ -119,15 +119,15 @@ body {
 }
 
 .animate-mobile-header {
-  animation: fade-down 0.7s cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation: fade-down 1.2s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
 .animate-mobile-map {
-  animation: scale-fade-in 0.8s cubic-bezier(0.16, 1, 0.3, 1) 0.15s both;
+  animation: scale-fade-in 1.2s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
 .animate-mobile-sheet {
-  animation: slide-up 0.8s cubic-bezier(0.16, 1, 0.3, 1) 0.35s both;
+  animation: slide-up 1.2s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
 /* Tab fill animation */
