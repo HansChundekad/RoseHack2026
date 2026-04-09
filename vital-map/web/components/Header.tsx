@@ -44,7 +44,7 @@ export function Header({
   return (
     <header className="fixed top-0 left-0 right-0 border-b z-50" style={{ backgroundColor: 'var(--tp-card)', borderColor: 'var(--tp-muted)' }}>
       {/* Green Banner */}
-      <div className="w-full py-8" style={{ backgroundColor: 'var(--tp-primary)' }}>
+      <div className="w-full py-4" style={{ backgroundColor: 'var(--tp-primary)' }}>
         <div className="container mx-auto px-4">
           <div className="text-center">
             <h1 className="text-4xl md:text-5xl font-bold text-white font-display tracking-tight">
@@ -57,9 +57,9 @@ export function Header({
         </div>
       </div>
 
-      <div className="container mx-auto px-4 pt-8 pb-6">
+      <div className="container mx-auto px-4 pt-4 pb-3">
         {/* Search Bars - Side by Side */}
-        <div className="mb-4 flex gap-6 items-end">
+        <div className="mb-3 flex gap-6 items-end">
           {/* Starting Location Input */}
           {onLocationSet && mapboxToken && (
             <div className="flex-1">

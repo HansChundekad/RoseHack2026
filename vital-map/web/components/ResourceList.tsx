@@ -27,6 +27,8 @@ interface ResourceListProps {
   startingLocation?: [number, number] | null;
   /** ID of the currently selected resource */
   selectedResourceId?: number | null;
+  /** Active tab for empty state messaging */
+  activeTab?: 'all' | 'clinical' | 'community' | 'events';
   /** Optional className for styling */
   className?: string;
 }
@@ -45,6 +47,7 @@ export function ResourceList({
   onProgrammaticMove,
   startingLocation,
   selectedResourceId,
+  activeTab = 'all',
   className = '',
 }: ResourceListProps) {
   const cardRefs = useRef<Map<number, HTMLDivElement>>(new Map());
@@ -102,13 +105,47 @@ export function ResourceList({
   }
 
   if (resources.length === 0) {
+    const isFilteredTab = activeTab !== 'all';
     return (
-      <div className={`h-full overflow-y-auto p-4 ${className}`}>
-        <div className="text-center mt-8" style={{ color: 'var(--tp-muted)' }}>
-          <p className="text-lg mb-2">No resources found</p>
-          <p className="text-sm">
-            Try adjusting your search or map view
-          </p>
+      <div className={`h-full flex items-center justify-center ${className}`}>
+        <div className="text-center w-full h-full">
+          {isFilteredTab ? (
+            <div className="animate-fade-in relative w-full h-full overflow-hidden flex flex-col items-center justify-center" style={{ backgroundColor: 'var(--tp-light)' }}>
+              {/* Background leaf pattern */}
+              <div className="absolute inset-0 opacity-10 pointer-events-none select-none flex items-center justify-center gap-6 text-6xl">
+                <span className="-rotate-12">🌿</span>
+                <span className="rotate-12 mt-8">🍃</span>
+                <span className="-rotate-45 -mt-4">🌱</span>
+              </div>
+              <div className="relative">
+                <p className="text-5xl mb-2 animate-bounce-slow">🍵</p>
+                <p
+                  className="text-3xl font-display font-bold tracking-tight mb-1"
+                  style={{ color: 'var(--tp-text)' }}
+                >
+                  Coming soon
+                </p>
+                <p
+                  className="text-lg font-display font-normal tracking-tight"
+                  style={{ color: 'var(--tp-muted)' }}
+                >
+                  Stay tuned for {activeTab} resources
+                </p>
+              </div>
+            </div>
+          ) : (
+            <div className="animate-fade-in">
+              <p
+                className="text-lg font-display font-semibold mb-2"
+                style={{ color: 'var(--tp-text)' }}
+              >
+                No resources found
+              </p>
+              <p className="text-sm" style={{ color: 'var(--tp-muted)' }}>
+                Try adjusting your search or map view
+              </p>
+            </div>
+          )}
         </div>
       </div>
     );
