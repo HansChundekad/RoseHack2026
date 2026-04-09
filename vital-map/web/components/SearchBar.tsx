@@ -60,18 +60,28 @@ export function SearchBar({
     <form onSubmit={handleSubmit} className={cn('w-full', className)}>
       <div className="relative flex gap-2">
         <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+          <Search
+            className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2"
+            style={{ color: 'var(--tp-muted)' }}
+          />
           <Input
             type="text"
             value={value}
             onChange={handleChange}
             placeholder={placeholder}
-            className="pl-10 pr-4 border-gray-300 text-gray-700 placeholder:text-gray-400"
+            className="pl-10 pr-4 rounded-xl h-12"
+            style={{
+              borderColor: 'var(--tp-muted)',
+              color: 'var(--tp-text)',
+            }}
           />
         </div>
         <Button
           type="submit"
-          className="bg-green-600 hover:bg-green-700 text-white rounded-md"
+          className="text-white rounded-xl h-12"
+          style={{
+            backgroundColor: 'var(--tp-primary)',
+          }}
         >
           Search
         </Button>

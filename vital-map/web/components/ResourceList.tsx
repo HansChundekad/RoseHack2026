@@ -1,6 +1,6 @@
 /**
  * ResourceList component
- * 
+ *
  * Scrollable sidebar displaying a list of resource cards.
  * Handles click events to fly to locations on the map.
  */
@@ -10,7 +10,7 @@ import { LoadingSkeleton } from './LoadingSkeleton';
 import type { Resource } from '@/types/resource';
 import type mapboxgl from 'mapbox-gl';
 import { parsePostGISPoint } from '@/lib/postgis';
-import { useMemo } from 'react';
+import { useMemo, useEffect, useRef } from 'react';
 
 interface ReviewStats {
   [locationId: number]: {
@@ -32,6 +32,14 @@ interface ResourceListProps {
   onProgrammaticMove?: () => void;
   /** Starting location for distance calculation */
   startingLocation?: [number, number] | null;
+  /** ID of the currently selected resource */
+  selectedResourceId?: number | null;
+  /** Currently hovered resource ID */
+  hoveredResourceId?: number | null;
+  /** Callback when a card is hovered */
+  onCardHover?: (id: number | null) => void;
+  /** Active tab for empty state messaging */
+  activeTab?: 'all' | 'clinical' | 'community' | 'events';
   /** Review statistics per location */
   reviewStats?: ReviewStats;
   /** Callback when a review is submitted */
@@ -42,7 +50,7 @@ interface ResourceListProps {
 
 /**
  * Component that displays a scrollable list of resources
- * 
+ *
  * Shows resource cards in a sidebar. Clicking a card will
  * fly the map to that resource's location.
  */
@@ -53,10 +61,34 @@ export function ResourceList({
   onResourceClick,
   onProgrammaticMove,
   startingLocation,
+  selectedResourceId,
+  hoveredResourceId,
+  onCardHover,
+  activeTab = 'all',
   reviewStats = {},
   onReviewSubmitted,
   className = '',
 }: ResourceListProps) {
+  const cardRefs = useRef<Map<number, HTMLDivElement>>(new Map());
+
+  // Scroll to selected card when selectedResourceId changes
+  useEffect(() => {
+    if (selectedResourceId == null) return;
+    const el = cardRefs.current.get(selectedResourceId);
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+  }, [selectedResourceId]);
+
+  // Scroll to card when marker is hovered
+  useEffect(() => {
+    if (hoveredResourceId == null) return;
+    const el = cardRefs.current.get(hoveredResourceId);
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+  }, [hoveredResourceId]);
+
   // Get map center as fallback for distance calculation
   const mapCenter = useMemo(() => {
     if (startingLocation) {
@@ -101,36 +133,75 @@ export function ResourceList({
   }
 
   if (resources.length === 0) {
+    const isFilteredTab = activeTab !== 'all';
     return (
-      <div className={`h-full overflow-y-auto p-4 ${className}`}>
-        <div className="text-center text-gray-500 mt-8">
-          <p className="text-lg mb-2">No resources found</p>
-          <p className="text-sm">
-            Try adjusting your search or map view
-          </p>
+      <div className={`h-full flex items-center justify-center ${className}`}>
+        <div className="text-center w-full h-full">
+          {isFilteredTab ? (
+            <div className="animate-fade-in relative w-full h-full overflow-hidden flex flex-col items-center justify-center" style={{ backgroundColor: 'var(--tp-light)' }}>
+              {/* Background leaf pattern */}
+              <div className="absolute inset-0 opacity-10 pointer-events-none select-none flex items-center justify-center gap-6 text-6xl">
+                <span className="-rotate-12">🌿</span>
+                <span className="rotate-12 mt-8">🍃</span>
+                <span className="-rotate-45 -mt-4">🌱</span>
+              </div>
+              <div className="relative">
+                <p className="text-5xl mb-2 animate-bounce-slow">🍵</p>
+                <p
+                  className="text-3xl font-display font-bold tracking-tight mb-1"
+                  style={{ color: 'var(--tp-text)' }}
+                >
+                  Coming soon
+                </p>
+                <p
+                  className="text-lg font-display font-normal tracking-tight"
+                  style={{ color: 'var(--tp-muted)' }}
+                >
+                  Stay tuned for {activeTab} resources
+                </p>
+              </div>
+            </div>
+          ) : (
+            <div className="animate-fade-in">
+              <p
+                className="text-lg font-display font-semibold mb-2"
+                style={{ color: 'var(--tp-text)' }}
+              >
+                No resources found
+              </p>
+              <p className="text-sm" style={{ color: 'var(--tp-muted)' }}>
+                Try adjusting your search or map view
+              </p>
+            </div>
+          )}
         </div>
       </div>
     );
   }
 
   return (
-    <div className={`h-full overflow-y-auto p-4 space-y-4 ${className}`}>
-      <div className="mb-4">
-        <p className="text-sm text-gray-600">
-          {resources.length} {resources.length === 1 ? 'result' : 'results'}
-        </p>
-      </div>
-
+    <div className={`h-full overflow-y-auto px-4 py-4 md:p-4 flex flex-col gap-4 ${className}`}>
       {resources.map((resource) => (
-        <ResourceCard
+        <div
           key={resource.id}
-          resource={resource}
-          onClick={handleCardClick}
-          startingLocation={mapCenter}
-          averageRating={reviewStats[resource.id]?.averageRating}
-          reviewCount={reviewStats[resource.id]?.reviewCount}
-          onReviewSubmitted={onReviewSubmitted}
-        />
+          ref={(el) => {
+            if (el) cardRefs.current.set(resource.id, el);
+            else cardRefs.current.delete(resource.id);
+          }}
+          onMouseEnter={() => onCardHover?.(resource.id)}
+          onMouseLeave={() => onCardHover?.(null)}
+        >
+          <ResourceCard
+            resource={resource}
+            onClick={handleCardClick}
+            startingLocation={mapCenter}
+            isSelected={resource.id === selectedResourceId}
+            isHovered={resource.id === hoveredResourceId}
+            averageRating={reviewStats[resource.id]?.averageRating}
+            reviewCount={reviewStats[resource.id]?.reviewCount}
+            onReviewSubmitted={onReviewSubmitted}
+          />
+        </div>
       ))}
     </div>
   );

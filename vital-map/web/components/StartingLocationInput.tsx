@@ -70,17 +70,21 @@ export function StartingLocationInput({
 
   return (
     <form onSubmit={handleSubmit} className={cn('w-full', className)}>
-      <label className="block text-sm font-medium text-gray-700 mb-2">
-        Starting Location
-      </label>
       <div className="relative">
-        <MapPin className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+        <MapPin
+          className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2"
+          style={{ color: 'var(--tp-muted)' }}
+        />
         <Input
           type="text"
           value={value}
           onChange={handleChange}
           placeholder="Enter your address or zip code..."
-          className="pl-10 border-gray-300 text-gray-700 placeholder:text-gray-400"
+          className="pl-10 rounded-xl h-12"
+          style={{
+            borderColor: 'var(--tp-muted)',
+            color: 'var(--tp-text)',
+          }}
           disabled={isGeocoding}
         />
       </div>

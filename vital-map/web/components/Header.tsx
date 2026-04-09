@@ -1,15 +1,13 @@
 /**
  * Header component
- * 
- * Top navigation bar with starting location, search functionality, and category tabs.
+ *
+ * Top navigation bar with starting location, search functionality.
  * Fixed positioning for full-viewport layout.
  */
 
-import Image from 'next/image';
+import { useRef, useEffect, useCallback } from 'react';
 import { SearchBar } from './SearchBar';
 import { StartingLocationInput } from './StartingLocationInput';
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { cn } from '@/lib/utils';
 
 interface HeaderProps {
   /** Callback when search is submitted */
@@ -18,62 +16,59 @@ interface HeaderProps {
   onLocationSet?: (coordinates: [number, number]) => void;
   /** Mapbox access token for geocoding */
   mapboxToken?: string;
-  /** Active tab */
-  activeTab?: 'all' | 'clinical' | 'community' | 'events';
-  /** Callback when tab changes */
-  onTabChange?: (tab: 'all' | 'clinical' | 'community' | 'events') => void;
+  /** Reports the measured header height */
+  onHeightChange?: (height: number) => void;
 }
 
 /**
  * Component that provides the application header
- * 
- * Includes starting location input, search bar, and category tabs.
- * Uses green/blue color scheme matching the design.
+ *
+ * Includes starting location input and search bar.
+ * Uses green color scheme matching the design.
  */
 export function Header({
   onSearch,
   onLocationSet,
   mapboxToken,
-  activeTab = 'all',
-  onTabChange,
+  onHeightChange,
 }: HeaderProps) {
-  const handleTabChange = (value: string) => {
-    const tab = value as 'all' | 'clinical' | 'community' | 'events';
-    onTabChange?.(tab);
-  };
+  const headerRef = useRef<HTMLElement>(null);
+
+  const measureHeight = useCallback(() => {
+    if (headerRef.current && onHeightChange) {
+      onHeightChange(headerRef.current.offsetHeight);
+    }
+  }, [onHeightChange]);
+
+  useEffect(() => {
+    measureHeight();
+    window.addEventListener('resize', measureHeight);
+    return () => window.removeEventListener('resize', measureHeight);
+  }, [measureHeight]);
 
   return (
-    <header className="fixed top-0 left-0 right-0 bg-white border-b border-gray-200 z-50">
+    <header
+      ref={headerRef}
+      className="fixed top-0 left-0 right-0 border-b z-50 animate-mobile-header"
+      style={{ backgroundColor: 'var(--tp-card)', borderColor: 'var(--tp-muted)' }}
+    >
       {/* Green Banner */}
-      <div className="bg-green-600 w-full py-2">
+      <div className="w-full py-3 md:py-4" style={{ backgroundColor: 'var(--tp-primary)' }}>
         <div className="container mx-auto px-4">
-          <div className="flex items-center justify-center gap-3">
-            <h1 className="text-4xl font-bold text-white">
-              TopRoot
+          <div className="text-center">
+            <h1 className="text-2xl md:text-4xl lg:text-5xl font-bold text-white font-display tracking-tight">
+              Taproot
             </h1>
-            <p className="text-sm text-white/90">
+            <p className="hidden md:block text-sm font-sans text-white/70 mt-1">
               Find your path to wellness
             </p>
           </div>
         </div>
       </div>
-      
-      <div className="container mx-auto px-4 py-6">
-        {/* Search Bars - Side by Side with Logo */}
-        <div className="mb-4 flex gap-6 items-end">
-          {/* Logo Image - Positioned on the far left */}
-          <div className="flex-shrink-0 flex items-end -ml-2">
-            <Image
-              src="/logo.png"
-              alt="TopRoot Logo"
-              width={120}
-              height={120}
-              className="object-contain"
-              priority
-            />
-          </div>
 
-          {/* Starting Location Input */}
+      {/* Search section */}
+      <div className="container mx-auto px-3 md:px-4 py-2 md:py-3">
+        <div className="flex gap-2 md:gap-6 items-end">
           {onLocationSet && mapboxToken && (
             <div className="flex-1">
               <StartingLocationInput
@@ -82,48 +77,13 @@ export function Header({
               />
             </div>
           )}
-
-          {/* Semantic Search Bar */}
           <div className="flex-1">
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Search Resources
-            </label>
             <SearchBar
               onSearch={onSearch}
-              placeholder='Search for resources... (e.g., "respiratory recovery", "air quality")'
+              placeholder='Search resources...'
             />
           </div>
         </div>
-
-        {/* Tabs with green active state */}
-        <Tabs value={activeTab} onValueChange={handleTabChange}>
-          <TabsList className="w-full justify-start bg-transparent p-0 h-auto border-b border-gray-200">
-            <TabsTrigger
-              value="all"
-              className="data-[state=active]:border-b-2 data-[state=active]:border-green-600 data-[state=active]:text-green-600 data-[state=active]:bg-transparent rounded-none"
-            >
-              All
-            </TabsTrigger>
-            <TabsTrigger
-              value="clinical"
-              className="data-[state=active]:border-b-2 data-[state=active]:border-green-600 data-[state=active]:text-green-600 data-[state=active]:bg-transparent rounded-none"
-            >
-              Clinical
-            </TabsTrigger>
-            <TabsTrigger
-              value="community"
-              className="data-[state=active]:border-b-2 data-[state=active]:border-green-600 data-[state=active]:text-green-600 data-[state=active]:bg-transparent rounded-none"
-            >
-              Community
-            </TabsTrigger>
-            <TabsTrigger
-              value="events"
-              className="data-[state=active]:border-b-2 data-[state=active]:border-green-600 data-[state=active]:text-green-600 data-[state=active]:bg-transparent rounded-none"
-            >
-              Events
-            </TabsTrigger>
-          </TabsList>
-        </Tabs>
       </div>
     </header>
   );

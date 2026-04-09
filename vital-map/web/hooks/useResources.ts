@@ -343,7 +343,7 @@ export function useResources(): UseResourcesReturn {
       const error = err instanceof Error ? err : new Error('Unknown error');
       setError(error);
       console.error('Error in getHappeningNow:', error);
-      setResources([]);
+      // Don't clear resources on failure — keep existing data visible
       return [];
     } finally {
       setLoading(false);
