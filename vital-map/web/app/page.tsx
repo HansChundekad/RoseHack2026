@@ -31,6 +31,7 @@ export default function Home() {
     'all' | 'clinical' | 'community' | 'events'
   >('all');
   const [searchQuery, setSearchQuery] = useState('');
+  const [selectedResourceId, setSelectedResourceId] = useState<number | null>(null);
   const [startingLocation, setStartingLocation] = useState<[number, number] | null>(
     null
   );
@@ -282,17 +283,34 @@ export default function Home() {
     return resourcesWithDistance.map((item) => item.resource);
   }, [resourcesWithTemporalStatus, startingLocation]);
 
-  // Handle resource click
+  // Handle resource click (card or marker)
   const handleResourceClick = useCallback((resource: Resource) => {
-    console.log('Resource clicked:', resource);
-    // Can be extended to show resource details modal
+    setSelectedResourceId((prev) =>
+      prev === resource.id ? null : resource.id
+    );
   }, []);
 
-  // Handle marker click
+  // Handle marker click — select, zoom map, and scroll to card
   const handleMarkerClick = useCallback((resource: Resource) => {
-    console.log('Marker clicked:', resource);
-    // Can be extended to show resource details modal
-  }, []);
+    setSelectedResourceId((prev) =>
+      prev === resource.id ? null : resource.id
+    );
+
+    // Zoom into the marker location
+    if (mapInstance && resource.location) {
+      try {
+        const [lng, lat] = parsePostGISPoint(resource.location);
+        isProgrammaticMove.current = true;
+        mapInstance.flyTo({
+          center: [lng, lat],
+          zoom: 14,
+          duration: 1000,
+        });
+      } catch (error) {
+        console.error('Error flying to marker:', error);
+      }
+    }
+  }, [mapInstance]);
 
   if (!mapboxToken) {
     return (
@@ -343,6 +361,7 @@ export default function Home() {
               isProgrammaticMove.current = true;
             }}
             startingLocation={startingLocation}
+            selectedResourceId={selectedResourceId}
           />
         </aside>
 

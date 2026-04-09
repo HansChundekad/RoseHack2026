@@ -72,9 +72,6 @@ export function Header({
 
           {/* Semantic Search Bar */}
           <div className="flex-1">
-            <label className="block text-sm font-medium mb-2" style={{ color: 'var(--tp-muted)' }}>
-              Search Resources
-            </label>
             <SearchBar
               onSearch={onSearch}
               placeholder='Search for resources... (e.g., "respiratory recovery", "air quality")'

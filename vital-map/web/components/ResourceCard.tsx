@@ -9,12 +9,13 @@ import { TrustScoreBadge } from './TrustScoreBadge';
 import { EventIndicator } from './EventIndicator';
 import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { MapPin, Send, Phone } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { MapPin, Navigation, Phone } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { calculateDistance } from '@/lib/geocoding';
 import type { Resource } from '@/types/resource';
 import { parsePostGISPoint } from '@/lib/postgis';
-import { getBadgeColor, getBorderColor } from '@/lib/categoryColors';
+import { getBadgeColor } from '@/lib/categoryColors';
 
 interface ResourceCardProps {
   /** Resource data to display */
@@ -23,6 +24,8 @@ interface ResourceCardProps {
   onClick?: (resource: Resource) => void;
   /** Starting location for distance calculation */
   startingLocation?: [number, number] | null;
+  /** Whether this card is currently selected/linked to the map */
+  isSelected?: boolean;
   /** Optional className for styling */
   className?: string;
 }
@@ -38,13 +41,9 @@ export function ResourceCard({
   resource,
   onClick,
   startingLocation,
+  isSelected = false,
   className = '',
 }: ResourceCardProps) {
-  // Truncate description to 120 characters
-  const truncatedDescription =
-    resource.description.length > 120
-      ? `${resource.description.substring(0, 120)}...`
-      : resource.description;
 
   // Calculate distance if starting location is provided
   let distance: number | null = null;
@@ -82,29 +81,28 @@ export function ResourceCard({
 
   // Get category-specific colors
   const badgeColor = getBadgeColor(resource.category);
-  const borderColor = getBorderColor(resource.category);
 
   return (
     <Card
       className={cn(
-        'hover:shadow-md transition-shadow cursor-pointer bg-(--color-card-white)',
-        borderColor,
-        'border-l-4', // Left border accent in category color
+        'rounded-2xl border border-gray-100 shadow-sm',
+        'hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 ease-out cursor-pointer',
+        isSelected && 'ring-2 ring-(--tp-primary) ring-offset-2',
         className
       )}
       onClick={() => onClick?.(resource)}
     >
-      <CardHeader className="pb-2">
-        <div className="flex items-start justify-between gap-2">
+      <CardHeader className="p-6 pb-0">
+        <div className="flex items-center justify-between gap-2">
           <h3
-            className="text-base font-semibold flex-1 font-display"
+            className="text-lg font-semibold flex-1 font-display"
             style={{ color: 'var(--tp-text)' }}
           >
             {resource.name}
           </h3>
           <Badge
             className={cn(
-              'text-xs font-medium px-2 py-1',
+              'rounded-full text-xs font-medium px-3 py-1',
               badgeColor
             )}
           >
@@ -113,11 +111,11 @@ export function ResourceCard({
         </div>
       </CardHeader>
 
-      <CardContent className="space-y-2 pt-0">
+      <CardContent className="p-6 pt-3 space-y-3">
         {/* Distance and rating row */}
         <div className="flex items-center gap-3 text-sm">
           {distance !== null && distance !== Infinity && !isNaN(distance) && (
-            <span className="font-medium" style={{ color: 'var(--tp-primary)' }}>
+            <span className="text-sm font-medium" style={{ color: 'var(--tp-primary)' }}>
               {distance.toFixed(1)} mi
             </span>
           )}
@@ -132,20 +130,20 @@ export function ResourceCard({
         </div>
 
         {/* Description */}
-        <p className="text-sm leading-relaxed" style={{ color: 'var(--tp-muted)' }}>
-          {truncatedDescription}
+        <p className="text-sm text-muted-foreground leading-relaxed line-clamp-2">
+          {resource.description}
         </p>
 
         {/* Address */}
-        <div className="flex items-center gap-1 text-sm" style={{ color: 'var(--tp-muted)' }}>
-          <MapPin className="h-3 w-3" />
+        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+          <MapPin className="h-3.5 w-3.5 shrink-0" />
           <span>{formatAddress(resource.location, resource.address)}</span>
         </div>
 
         {/* Phone Number - conditional */}
         {resource.phone_number && (
-          <div className="flex items-center gap-1 text-sm" style={{ color: 'var(--tp-muted)' }}>
-            <Phone className="h-3 w-3" />
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <Phone className="h-3.5 w-3.5 shrink-0" />
             <a
               href={`tel:${resource.phone_number}`}
               className="hover:underline"
@@ -158,18 +156,19 @@ export function ResourceCard({
         )}
       </CardContent>
 
-      <CardFooter className="pt-2 pb-3">
-        <button
-          className="flex items-center gap-1 text-sm transition-colors"
-          style={{ color: 'var(--tp-primary)' }}
+      <CardFooter className="px-6 pt-0 pb-6">
+        <Button
+          variant="ghost"
+          size="sm"
+          className="rounded-full text-xs text-(--tp-primary) hover:bg-(--tp-primary)/10"
           onClick={(e) => {
             e.stopPropagation();
             onClick?.(resource);
           }}
         >
-          <Send className="h-3 w-3" />
-          <span>View on map</span>
-        </button>
+          <Navigation className="h-3.5 w-3.5 mr-1" />
+          View on map
+        </Button>
       </CardFooter>
     </Card>
   );

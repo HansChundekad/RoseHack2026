@@ -10,7 +10,7 @@ import { LoadingSkeleton } from './LoadingSkeleton';
 import type { Resource } from '@/types/resource';
 import type mapboxgl from 'mapbox-gl';
 import { parsePostGISPoint } from '@/lib/postgis';
-import { useMemo } from 'react';
+import { useMemo, useEffect, useRef } from 'react';
 
 interface ResourceListProps {
   /** Array of resources to display */
@@ -25,6 +25,8 @@ interface ResourceListProps {
   onProgrammaticMove?: () => void;
   /** Starting location for distance calculation */
   startingLocation?: [number, number] | null;
+  /** ID of the currently selected resource */
+  selectedResourceId?: number | null;
   /** Optional className for styling */
   className?: string;
 }
@@ -42,8 +44,20 @@ export function ResourceList({
   onResourceClick,
   onProgrammaticMove,
   startingLocation,
+  selectedResourceId,
   className = '',
 }: ResourceListProps) {
+  const cardRefs = useRef<Map<number, HTMLDivElement>>(new Map());
+
+  // Scroll to selected card when selectedResourceId changes
+  useEffect(() => {
+    if (selectedResourceId == null) return;
+    const el = cardRefs.current.get(selectedResourceId);
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+  }, [selectedResourceId]);
+
   // Get map center as fallback for distance calculation
   const mapCenter = useMemo(() => {
     if (startingLocation) {
@@ -101,7 +115,7 @@ export function ResourceList({
   }
 
   return (
-    <div className={`h-full overflow-y-auto p-4 space-y-4 ${className}`}>
+    <div className={`h-full overflow-y-auto p-4 flex flex-col gap-4 ${className}`}>
       <div className="mb-4">
         <p className="text-sm" style={{ color: 'var(--tp-muted)' }}>
           {resources.length} {resources.length === 1 ? 'result' : 'results'}
@@ -109,12 +123,20 @@ export function ResourceList({
       </div>
 
       {resources.map((resource) => (
-        <ResourceCard
+        <div
           key={resource.id}
-          resource={resource}
-          onClick={handleCardClick}
-          startingLocation={mapCenter}
-        />
+          ref={(el) => {
+            if (el) cardRefs.current.set(resource.id, el);
+            else cardRefs.current.delete(resource.id);
+          }}
+        >
+          <ResourceCard
+            resource={resource}
+            onClick={handleCardClick}
+            startingLocation={mapCenter}
+            isSelected={resource.id === selectedResourceId}
+          />
+        </div>
       ))}
     </div>
   );
