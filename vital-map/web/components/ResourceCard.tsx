@@ -1,16 +1,20 @@
 /**
  * ResourceCard component
- * 
+ *
  * Displays a single resource (clinical facility, community center, etc.)
  * with name, category, description, trust score, and event indicators.
  */
 
+'use client';
+
+import { useState } from 'react';
 import { TrustScoreBadge } from './TrustScoreBadge';
 import { EventIndicator } from './EventIndicator';
+import { ReviewModal } from './ReviewModal';
 import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { MapPin, Navigation, Phone } from 'lucide-react';
+import { MapPin, Navigation, Phone, Star, Globe } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { calculateDistance } from '@/lib/geocoding';
 import type { Resource } from '@/types/resource';
@@ -28,13 +32,19 @@ interface ResourceCardProps {
   isSelected?: boolean;
   /** Whether this card is highlighted via marker hover */
   isHovered?: boolean;
+  /** Average rating from reviews */
+  averageRating?: number;
+  /** Number of reviews */
+  reviewCount?: number;
+  /** Callback when review is submitted */
+  onReviewSubmitted?: () => void;
   /** Optional className for styling */
   className?: string;
 }
 
 /**
  * Component that displays a resource card
- * 
+ *
  * Shows resource information with category-specific styling,
  * trust scores for community resources, and event indicators.
  * Uses shadcn/ui Card and Badge components.
@@ -45,8 +55,12 @@ export function ResourceCard({
   startingLocation,
   isSelected = false,
   isHovered = false,
+  averageRating,
+  reviewCount,
+  onReviewSubmitted,
   className = '',
 }: ResourceCardProps) {
+  const [isReviewModalOpen, setIsReviewModalOpen] = useState(false);
 
   // Calculate distance if starting location is provided
   let distance: number | null = null;
@@ -123,11 +137,14 @@ export function ResourceCard({
               {distance.toFixed(1)} mi
             </span>
           )}
-          {resource.trust_score !== undefined && (
+          {averageRating !== undefined && averageRating > 0 && (
             <div className="flex items-center gap-1">
-              <span className="text-yellow-500">⭐</span>
-              <span style={{ color: 'var(--tp-text)' }}>
-                {resource.trust_score / 20}
+              <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
+              <span className="text-gray-700 font-medium">
+                {averageRating.toFixed(1)}
+              </span>
+              <span className="text-gray-500">
+                ({reviewCount})
               </span>
             </div>
           )}
@@ -158,9 +175,26 @@ export function ResourceCard({
             </a>
           </div>
         )}
+
+        {/* Website URL - conditional */}
+        {resource.website_url && (
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <Globe className="h-3.5 w-3.5 shrink-0" />
+            <a
+              href={resource.website_url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="hover:underline"
+              style={{ color: 'var(--tp-primary)' }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              {resource.website_url}
+            </a>
+          </div>
+        )}
       </CardContent>
 
-      <CardFooter className="px-6 pt-0 pb-6">
+      <CardFooter className="px-6 pt-0 pb-6 flex gap-2">
         <Button
           variant="ghost"
           size="sm"
@@ -173,7 +207,31 @@ export function ResourceCard({
           <Navigation className="h-3.5 w-3.5 mr-1" />
           View on map
         </Button>
+
+        <Button
+          variant="ghost"
+          size="sm"
+          className="rounded-full text-xs text-blue-600 hover:bg-blue-50 ml-auto"
+          onClick={(e) => {
+            e.stopPropagation();
+            setIsReviewModalOpen(true);
+          }}
+        >
+          <Star className="h-3.5 w-3.5 mr-1" />
+          Leave a Review
+        </Button>
       </CardFooter>
+
+      <ReviewModal
+        locationId={resource.id}
+        locationName={resource.name}
+        isOpen={isReviewModalOpen}
+        onClose={() => setIsReviewModalOpen(false)}
+        onSuccess={() => {
+          console.log('Review submitted successfully for:', resource.name);
+          onReviewSubmitted?.();
+        }}
+      />
     </Card>
   );
 }

@@ -1,7 +1,7 @@
 /**
  * Header component
- * 
- * Top navigation bar with starting location, search functionality, and category tabs.
+ *
+ * Top navigation bar with starting location, search functionality.
  * Fixed positioning for full-viewport layout.
  */
 
@@ -22,9 +22,9 @@ interface HeaderProps {
 
 /**
  * Component that provides the application header
- * 
- * Includes starting location input, search bar, and category tabs.
- * Uses green/blue color scheme matching the design.
+ *
+ * Includes starting location input and search bar.
+ * Uses green color scheme matching the design.
  */
 export function Header({
   onSearch,

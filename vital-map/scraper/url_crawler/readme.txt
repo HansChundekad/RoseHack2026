@@ -14,3 +14,7 @@ scrapy crawl link_spider -O output/urls.json
 scrapy crawl link_spider -O output/urls.json --nolog
 
 
+steps:
+source venv/scraper-venv/bin/activate
+cd vital-map/scraper/url_crawler/url_crawler
+scrapy crawl link_spider

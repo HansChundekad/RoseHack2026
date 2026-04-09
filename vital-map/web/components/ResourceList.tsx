@@ -1,6 +1,6 @@
 /**
  * ResourceList component
- * 
+ *
  * Scrollable sidebar displaying a list of resource cards.
  * Handles click events to fly to locations on the map.
  */
@@ -11,6 +11,13 @@ import type { Resource } from '@/types/resource';
 import type mapboxgl from 'mapbox-gl';
 import { parsePostGISPoint } from '@/lib/postgis';
 import { useMemo, useEffect, useRef } from 'react';
+
+interface ReviewStats {
+  [locationId: number]: {
+    averageRating: number;
+    reviewCount: number;
+  };
+}
 
 interface ResourceListProps {
   /** Array of resources to display */
@@ -33,13 +40,17 @@ interface ResourceListProps {
   onCardHover?: (id: number | null) => void;
   /** Active tab for empty state messaging */
   activeTab?: 'all' | 'clinical' | 'community' | 'events';
+  /** Review statistics per location */
+  reviewStats?: ReviewStats;
+  /** Callback when a review is submitted */
+  onReviewSubmitted?: () => void;
   /** Optional className for styling */
   className?: string;
 }
 
 /**
  * Component that displays a scrollable list of resources
- * 
+ *
  * Shows resource cards in a sidebar. Clicking a card will
  * fly the map to that resource's location.
  */
@@ -54,6 +65,8 @@ export function ResourceList({
   hoveredResourceId,
   onCardHover,
   activeTab = 'all',
+  reviewStats = {},
+  onReviewSubmitted,
   className = '',
 }: ResourceListProps) {
   const cardRefs = useRef<Map<number, HTMLDivElement>>(new Map());
@@ -184,6 +197,9 @@ export function ResourceList({
             startingLocation={mapCenter}
             isSelected={resource.id === selectedResourceId}
             isHovered={resource.id === hoveredResourceId}
+            averageRating={reviewStats[resource.id]?.averageRating}
+            reviewCount={reviewStats[resource.id]?.reviewCount}
+            onReviewSubmitted={onReviewSubmitted}
           />
         </div>
       ))}

@@ -2,21 +2,28 @@
  * useResources hook
  *
  * Manages resource state and provides functions for spatial and semantic search.
- * Connects to PostGIS database via Supabase RPC functions.
+ * Connects to PostGIS database via Supabase RPC functions and merges with hardcoded hospitals from JSON.
+ *
+ * Data sources:
+ * - Supabase database (primary) - All locations from get_all_locations() RPC
+ * - hospitals.json (supplemental) - 3 hardcoded LA hospital locations
  *
  * RPC functions used:
  * - get_all_locations() - Fetch all locations with ST_AsText(geom), excludes embedding vector
  * - match_locations(min_lng, min_lat, max_lng, max_lat) - Spatial search within bounds
  * - semantic_search(query_vector, limit?) - Vector similarity search (server-side only)
+ * - hybrid_search() - Combined geo + semantic search
  * - get_happening_now_events() - Temporal search for current events
  *
  * Note: Embedding vectors are stored in DB but NOT returned in API responses for performance.
  * They are used only for server-side semantic search operations.
+ * Hardcoded hospitals are merged into all search results.
  */
 
 import { useState, useCallback, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 import type { Resource, BoundingBox } from '@/types/resource';
+import hospitalsData from '@/data/hospitals.json';
 
 interface UseResourcesReturn {
   /** Array of resources currently loaded */
@@ -46,7 +53,7 @@ interface UseResourcesReturn {
  * Custom hook for managing resources
  * 
  * Provides state management and search functions for healthcare/wellness resources.
- * All backend RPC calls are stubbed and ready for integration.
+ * Loads from Supabase database and merges with hardcoded hospitals from JSON.
  * 
  * @returns Object with resources state and search functions
  */
@@ -55,13 +62,14 @@ export function useResources(): UseResourcesReturn {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<Error | null>(null);
 
-  // Load all locations from database on mount
+  // Load all locations from database + hardcoded hospitals from JSON
   useEffect(() => {
     const loadResources = async () => {
       setLoading(true);
       setError(null);
 
       try {
+        // Load from Supabase
         const { data, error: rpcError } = await supabase.rpc(
           'get_all_locations'
         );
@@ -70,14 +78,21 @@ export function useResources(): UseResourcesReturn {
           throw rpcError;
         }
 
-        const locations = (data || []) as Resource[];
-        setResources(locations);
-        console.log(`✅ Loaded ${locations.length} locations from database`);
+        const dbLocations = (data || []) as Resource[];
+        
+        // Merge with hardcoded hospitals from JSON
+        const hardcodedHospitals = hospitalsData as Resource[];
+        const allLocations = [...dbLocations, ...hardcodedHospitals];
+        
+        setResources(allLocations);
+        console.log(`✅ Loaded ${dbLocations.length} locations from database + ${hardcodedHospitals.length} hardcoded hospitals`);
       } catch (err) {
         const error = err instanceof Error ? err : new Error('Unknown error');
         setError(error);
         console.error('Error loading resources:', error);
-        setResources([]);
+        // Fallback to just hardcoded hospitals if DB fails
+        const hardcodedHospitals = hospitalsData as Resource[];
+        setResources(hardcodedHospitals);
       } finally {
         setLoading(false);
       }
@@ -89,7 +104,7 @@ export function useResources(): UseResourcesReturn {
   /**
    * Spatial search: Find resources within a map bounding box
    *
-   * Calls Supabase RPC function `match_locations`
+   * Calls Supabase RPC function `match_locations` and merges with hardcoded hospitals
    *
    * @param bounds - Bounding box coordinates
    * @returns Array of resources within the bounds
@@ -100,6 +115,7 @@ export function useResources(): UseResourcesReturn {
       setError(null);
 
       try {
+        // Get results from Supabase
         const { data, error: rpcError } = await supabase.rpc('match_locations', {
           min_lng: bounds.minLng,
           min_lat: bounds.minLat,
@@ -111,7 +127,28 @@ export function useResources(): UseResourcesReturn {
           throw rpcError;
         }
 
-        const results = (data || []) as Resource[];
+        const dbResults = (data || []) as Resource[];
+        
+        // Filter hardcoded hospitals by bounding box and merge
+        const hardcodedHospitals = hospitalsData as Resource[];
+        const { parsePostGISPoint } = await import('@/lib/postgis');
+        
+        const filteredHospitals = hardcodedHospitals.filter((location) => {
+          if (!location.location) return false;
+          try {
+            const [lng, lat] = parsePostGISPoint(location.location);
+            return (
+              lng >= bounds.minLng &&
+              lng <= bounds.maxLng &&
+              lat >= bounds.minLat &&
+              lat <= bounds.maxLat
+            );
+          } catch {
+            return false;
+          }
+        });
+        
+        const results = [...dbResults, ...filteredHospitals];
         setResources(results);
         return results;
       } catch (err) {
@@ -130,7 +167,7 @@ export function useResources(): UseResourcesReturn {
   /**
    * Semantic search: Find resources using vector similarity
    *
-   * Calls Supabase RPC function `semantic_search`
+   * Calls Supabase RPC function `semantic_search` and merges with hardcoded hospitals
    *
    * @param queryVector - 1536-dimensional embedding vector
    * @param similarityThreshold - Max cosine distance (default 2.0 = all results)
@@ -162,9 +199,14 @@ export function useResources(): UseResourcesReturn {
 
         if (rpcError) throw rpcError;
 
-        const results = (data || []) as Resource[];
+        const dbResults = (data || []) as Resource[];
+        
+        // Add hardcoded hospitals (no semantic filtering for them)
+        const hardcodedHospitals = hospitalsData as Resource[];
+        const results = [...dbResults, ...hardcodedHospitals];
+        
         setResources(results);
-        console.log(`✅ Semantic search returned ${results.length} results`);
+        console.log(`✅ Semantic search returned ${dbResults.length} results from DB + ${hardcodedHospitals.length} hardcoded hospitals`);
         return results;
       } catch (err) {
         const error = err instanceof Error ? err : new Error('Unknown error');
@@ -182,7 +224,7 @@ export function useResources(): UseResourcesReturn {
   /**
    * Hybrid search: Combine geographic proximity and semantic similarity
    *
-   * Calls Supabase RPC function `hybrid_search`
+   * Calls Supabase RPC function `hybrid_search` and merges with hardcoded hospitals
    *
    * @param queryVector - 1536-dimensional embedding vector
    * @param centerLng - Search center longitude
@@ -231,9 +273,32 @@ export function useResources(): UseResourcesReturn {
 
         if (rpcError) throw rpcError;
 
-        const results = (data || []) as Resource[];
+        const dbResults = (data || []) as Resource[];
+        
+        // Filter hardcoded hospitals by distance and merge
+        const hardcodedHospitals = hospitalsData as Resource[];
+        const { parsePostGISPoint } = await import('@/lib/postgis');
+        const { calculateDistance } = await import('@/lib/geocoding');
+        
+        const filteredHospitals = hardcodedHospitals
+          .map((location) => {
+            if (!location.location) return null;
+            try {
+              const [lng, lat] = parsePostGISPoint(location.location);
+              const distance = calculateDistance(centerLat, centerLng, lat, lng);
+              return { location, distance };
+            } catch {
+              return null;
+            }
+          })
+          .filter((item): item is { location: Resource; distance: number } => 
+            item !== null && item.distance <= radiusMeters / 1609.34 // Convert meters to miles
+          )
+          .map((item) => item.location);
+        
+        const results = [...dbResults, ...filteredHospitals];
         setResources(results);
-        console.log(`✅ Hybrid search returned ${results.length} results`);
+        console.log(`✅ Hybrid search returned ${dbResults.length} results from DB + ${filteredHospitals.length} hardcoded hospitals`);
         return results;
       } catch (err) {
         const error = err instanceof Error ? err : new Error('Unknown error');
@@ -268,7 +333,10 @@ export function useResources(): UseResourcesReturn {
         throw rpcError;
       }
 
-      const results = (data || []) as Resource[];
+      const dbResults = (data || []) as Resource[];
+      
+      // Hardcoded hospitals don't have events, so just return DB results
+      const results = dbResults;
       setResources(results);
       return results;
     } catch (err) {
