@@ -18,12 +18,10 @@ import { useTemporalSync } from '@/hooks/useTemporalSync';
 import { calculateDistance } from '@/lib/geocoding';
 import { parsePostGISPoint } from '@/lib/postgis';
 import { generateEmbedding } from '@/lib/embeddings';
+import { Button } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
 import type mapboxgl from 'mapbox-gl';
 import type { Resource } from '@/types/resource';
-
-// Header height in pixels (used for viewport calculation)
-// Accommodates green banner, both search bars on one line, and tabs
-const HEADER_HEIGHT = 245;
 
 export default function Home() {
   const [mapInstance, setMapInstance] = useState<mapboxgl.Map | null>(null);
@@ -33,6 +31,7 @@ export default function Home() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedResourceId, setSelectedResourceId] = useState<number | null>(null);
   const [hoveredResourceId, setHoveredResourceId] = useState<number | null>(null);
+  const [headerHeight, setHeaderHeight] = useState(0);
   const [startingLocation, setStartingLocation] = useState<[number, number] | null>(
     null
   );
@@ -96,28 +95,12 @@ export default function Home() {
     [semanticSearch, matchLocations, mapInstance]
   );
 
-  // Handle tab change
+  // Handle tab change — filtering is done client-side via filteredResources
   const handleTabChange = useCallback(
-    async (tab: 'all' | 'clinical' | 'community' | 'events') => {
+    (tab: 'all' | 'clinical' | 'community' | 'events') => {
       setActiveTab(tab);
-
-      if (tab === 'events') {
-        // Load happening now events
-        await getHappeningNow();
-      } else if (mapInstance) {
-        // Load resources for current map bounds
-        const bounds = mapInstance.getBounds();
-        if (bounds) {
-          await matchLocations({
-            minLng: bounds.getWest(),
-            minLat: bounds.getSouth(),
-            maxLng: bounds.getEast(),
-            maxLat: bounds.getNorth(),
-          });
-        }
-      }
     },
-    [getHappeningNow, matchLocations, mapInstance]
+    []
   );
 
   // Track if map movement is programmatic (to prevent infinite loops)
@@ -327,17 +310,54 @@ export default function Home() {
         onSearch={handleSearch}
         onLocationSet={handleLocationSet}
         mapboxToken={mapboxToken}
-        activeTab={activeTab}
-        onTabChange={handleTabChange}
+        onHeightChange={setHeaderHeight}
       />
 
       {/* Main Content Area */}
       <main
-        className="flex flex-1 overflow-hidden"
-        style={{ marginTop: `${HEADER_HEIGHT}px` }}
+        className="flex-1 relative md:flex md:flex-row overflow-hidden"
+        style={{ marginTop: `${headerHeight}px` }}
       >
-        {/* Left Sidebar - Resource List (40%) */}
-        <aside className="w-[40%] border-r" style={{ backgroundColor: 'var(--tp-card)' }}>
+        {/* Map View — fixed behind cards on mobile, right side on desktop */}
+        <section className="absolute inset-0 md:relative md:flex-1 p-2 md:p-3 animate-mobile-map">
+          <div className="w-full h-full md:rounded-2xl overflow-hidden md:shadow-md">
+            <MapView
+              key="map-view"
+              resources={sortedResources}
+              accessToken={mapboxToken}
+              onMapReady={handleMapReady}
+              onMarkerClick={handleMarkerClick}
+              hoveredResourceId={hoveredResourceId}
+              onMarkerHover={setHoveredResourceId}
+            />
+          </div>
+        </section>
+
+        {/* Resource List — bottom sheet over map on mobile, left sidebar on desktop */}
+        <aside
+          className="absolute bottom-0 left-0 right-0 h-[55%] z-10 md:relative md:bottom-auto md:left-auto md:right-auto md:h-auto md:w-[40%] border-t md:border-t-0 md:border-r md:order-first md:rounded-none flex flex-col shadow-[0_-2px_10px_rgba(0,0,0,0.08)] md:shadow-none overflow-hidden animate-mobile-sheet"
+          style={{ backgroundColor: 'var(--tp-card)' }}
+        >
+          {/* Tab strip — sticky header of the scrollable area */}
+          <div
+            className="shrink-0 flex gap-1.5 md:gap-2 px-3 md:px-4 py-2 overflow-x-auto border-b"
+            style={{ borderColor: 'var(--tp-muted)' }}
+          >
+            {(['all', 'clinical', 'community', 'events'] as const).map((tab) => (
+              <Button
+                key={tab}
+                variant={activeTab === tab ? 'default' : 'outline'}
+                className={cn(
+                  'rounded-full px-3 md:px-5 h-7 md:h-9 text-xs md:text-sm capitalize shrink-0',
+                  activeTab === tab && 'text-white',
+                )}
+                style={activeTab === tab ? { backgroundColor: 'var(--tp-primary)' } : undefined}
+                onClick={() => handleTabChange(tab)}
+              >
+                {tab}
+              </Button>
+            ))}
+          </div>
           {error && (
             <div className="p-4 bg-destructive/10 border-b border-destructive/20">
               <p className="text-sm text-destructive">
@@ -360,21 +380,6 @@ export default function Home() {
             activeTab={activeTab}
           />
         </aside>
-
-        {/* Right Map View (60%) */}
-        <section className="flex-1 relative p-3">
-          <div className="w-full h-full rounded-2xl overflow-hidden shadow-md">
-            <MapView
-              key="map-view"
-              resources={sortedResources}
-              accessToken={mapboxToken}
-              onMapReady={handleMapReady}
-              onMarkerClick={handleMarkerClick}
-              hoveredResourceId={hoveredResourceId}
-              onMarkerHover={setHoveredResourceId}
-            />
-          </div>
-        </section>
       </main>
     </div>
   );

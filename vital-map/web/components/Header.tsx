@@ -5,10 +5,9 @@
  * Fixed positioning for full-viewport layout.
  */
 
+import { useRef, useEffect, useCallback } from 'react';
 import { SearchBar } from './SearchBar';
 import { StartingLocationInput } from './StartingLocationInput';
-import { Button } from '@/components/ui/button';
-import { cn } from '@/lib/utils';
 
 interface HeaderProps {
   /** Callback when search is submitted */
@@ -17,10 +16,8 @@ interface HeaderProps {
   onLocationSet?: (coordinates: [number, number]) => void;
   /** Mapbox access token for geocoding */
   mapboxToken?: string;
-  /** Active tab */
-  activeTab?: 'all' | 'clinical' | 'community' | 'events';
-  /** Callback when tab changes */
-  onTabChange?: (tab: 'all' | 'clinical' | 'community' | 'events') => void;
+  /** Reports the measured header height */
+  onHeightChange?: (height: number) => void;
 }
 
 /**
@@ -33,34 +30,45 @@ export function Header({
   onSearch,
   onLocationSet,
   mapboxToken,
-  activeTab = 'all',
-  onTabChange,
+  onHeightChange,
 }: HeaderProps) {
-  const handleTabChange = (value: string) => {
-    const tab = value as 'all' | 'clinical' | 'community' | 'events';
-    onTabChange?.(tab);
-  };
+  const headerRef = useRef<HTMLElement>(null);
+
+  const measureHeight = useCallback(() => {
+    if (headerRef.current && onHeightChange) {
+      onHeightChange(headerRef.current.offsetHeight);
+    }
+  }, [onHeightChange]);
+
+  useEffect(() => {
+    measureHeight();
+    window.addEventListener('resize', measureHeight);
+    return () => window.removeEventListener('resize', measureHeight);
+  }, [measureHeight]);
 
   return (
-    <header className="fixed top-0 left-0 right-0 border-b z-50" style={{ backgroundColor: 'var(--tp-card)', borderColor: 'var(--tp-muted)' }}>
+    <header
+      ref={headerRef}
+      className="fixed top-0 left-0 right-0 border-b z-50 animate-mobile-header"
+      style={{ backgroundColor: 'var(--tp-card)', borderColor: 'var(--tp-muted)' }}
+    >
       {/* Green Banner */}
-      <div className="w-full py-4" style={{ backgroundColor: 'var(--tp-primary)' }}>
+      <div className="w-full py-3 md:py-4" style={{ backgroundColor: 'var(--tp-primary)' }}>
         <div className="container mx-auto px-4">
           <div className="text-center">
-            <h1 className="text-4xl md:text-5xl font-bold text-white font-display tracking-tight">
+            <h1 className="text-2xl md:text-4xl lg:text-5xl font-bold text-white font-display tracking-tight">
               Taproot
             </h1>
-            <p className="text-sm font-sans text-white/70 mt-1">
+            <p className="hidden md:block text-sm font-sans text-white/70 mt-1">
               Find your path to wellness
             </p>
           </div>
         </div>
       </div>
 
-      <div className="container mx-auto px-4 pt-4 pb-3">
-        {/* Search Bars - Side by Side */}
-        <div className="mb-3 flex gap-6 items-end">
-          {/* Starting Location Input */}
+      {/* Search section */}
+      <div className="container mx-auto px-3 md:px-4 py-2 md:py-3">
+        <div className="flex gap-2 md:gap-6 items-end">
           {onLocationSet && mapboxToken && (
             <div className="flex-1">
               <StartingLocationInput
@@ -69,32 +77,12 @@ export function Header({
               />
             </div>
           )}
-
-          {/* Semantic Search Bar */}
           <div className="flex-1">
             <SearchBar
               onSearch={onSearch}
-              placeholder='Search for resources... (e.g., "respiratory recovery", "air quality")'
+              placeholder='Search resources...'
             />
           </div>
-        </div>
-
-        {/* Category Tab Pills */}
-        <div className="flex gap-2">
-          {(['all', 'clinical', 'community', 'events'] as const).map((tab) => (
-            <Button
-              key={tab}
-              variant={activeTab === tab ? 'default' : 'outline'}
-              className={cn(
-                'rounded-full px-5 h-9 capitalize',
-                activeTab === tab && 'text-white',
-              )}
-              style={activeTab === tab ? { backgroundColor: 'var(--tp-primary)' } : undefined}
-              onClick={() => handleTabChange(tab)}
-            >
-              {tab}
-            </Button>
-          ))}
         </div>
       </div>
     </header>

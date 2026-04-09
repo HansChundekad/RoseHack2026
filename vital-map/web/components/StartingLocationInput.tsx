@@ -70,9 +70,6 @@ export function StartingLocationInput({
 
   return (
     <form onSubmit={handleSubmit} className={cn('w-full', className)}>
-      <label className="block text-sm font-medium mb-2" style={{ color: 'var(--tp-muted)' }}>
-        Starting Location
-      </label>
       <div className="relative">
         <MapPin
           className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2"
