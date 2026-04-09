@@ -163,16 +163,8 @@ export default function Home() {
         });
       }
 
-      // Load initial resources for map bounds
-      const bounds = map.getBounds();
-      if (bounds) {
-        matchLocations({
-          minLng: bounds.getWest(),
-          minLat: bounds.getSouth(),
-          maxLng: bounds.getEast(),
-          maxLat: bounds.getNorth(),
-        });
-      }
+      // Initial resources are loaded by get_all_locations on mount.
+      // No need to call matchLocations here — it would overwrite with a subset.
 
       // Update resources when map moves (throttled to prevent excessive updates)
       // DISABLED TEMPORARILY - Only update on initial load and manual search

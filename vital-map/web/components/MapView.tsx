@@ -91,18 +91,16 @@ function MapView({
 
   // Track previous resources to prevent unnecessary updates
   const previousResourcesRef = useRef<string>('');
-  const isUpdatingRef = useRef(false);
 
   // Update markers when resources change
   useEffect(() => {
-    if (!map.current || !isMapReady || isUpdatingRef.current) return;
+    if (!map.current || !isMapReady) return;
 
     // Skip update if resources haven't actually changed
     if (resourcesKey === previousResourcesRef.current) {
       return;
     }
 
-    isUpdatingRef.current = true;
     previousResourcesRef.current = resourcesKey;
 
     // Clear existing markers
@@ -134,12 +132,7 @@ function MapView({
         );
       }
     });
-
-    // Reset update flag after a brief delay to prevent rapid updates
-    setTimeout(() => {
-      isUpdatingRef.current = false;
-    }, 100);
-  }, [resourcesKey, isMapReady, onMarkerClick]); // Use resourcesKey instead of resources
+  }, [resourcesKey, isMapReady, onMarkerClick]);
 
   return (
     <div
