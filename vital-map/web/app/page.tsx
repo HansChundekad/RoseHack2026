@@ -18,7 +18,6 @@ import { useReviewStats } from '@/hooks/useReviewStats';
 import { useTemporalSync } from '@/hooks/useTemporalSync';
 import { calculateDistance } from '@/lib/geocoding';
 import { parsePostGISPoint } from '@/lib/postgis';
-import { generateEmbedding } from '@/lib/embeddings';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import type mapboxgl from 'mapbox-gl';
@@ -41,9 +40,7 @@ export default function Home() {
     resources,
     loading,
     error,
-    semanticSearch,
     matchLocations,
-    getHappeningNow,
   } = useResources();
 
   const { reviewStats, refetch: refetchReviews } = useReviewStats();
@@ -54,49 +51,10 @@ export default function Home() {
   const mapboxToken =
     process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN || '';
 
-  // Handle search submission
-  const handleSearch = useCallback(
-    async (query: string) => {
-      setSearchQuery(query);
-      if (query.trim()) {
-        try {
-          // Convert text query to embedding vector
-          const embedding = await generateEmbedding(query);
-
-          // Perform semantic search with the embedding
-          await semanticSearch(embedding);
-        } catch (error) {
-          console.error('Error generating embedding:', error);
-          // Fallback to spatial search if embedding fails
-          if (mapInstance) {
-            const bounds = mapInstance.getBounds();
-            if (bounds) {
-              await matchLocations({
-                minLng: bounds.getWest(),
-                minLat: bounds.getSouth(),
-                maxLng: bounds.getEast(),
-                maxLat: bounds.getNorth(),
-              });
-            }
-          }
-        }
-      } else {
-        // If no query, load resources for current map bounds
-        if (mapInstance) {
-          const bounds = mapInstance.getBounds();
-          if (bounds) {
-            await matchLocations({
-              minLng: bounds.getWest(),
-              minLat: bounds.getSouth(),
-              maxLng: bounds.getEast(),
-              maxLat: bounds.getNorth(),
-            });
-          }
-        }
-      }
-    },
-    [semanticSearch, matchLocations, mapInstance]
-  );
+  // Handle search submission — client-side keyword filter against in-memory resources
+  const handleSearch = useCallback((query: string) => {
+    setSearchQuery(query);
+  }, []);
 
   // Handle tab change — filtering is done client-side via filteredResources
   const handleTabChange = useCallback(
@@ -187,9 +145,9 @@ export default function Home() {
     [matchLocations, startingLocation]
   );
 
-  // Filter resources by active tab (memoized to prevent unnecessary recalculations)
+  // Filter resources by active tab then by keyword search query
   const filteredResources = useMemo(() => {
-    return resources.filter((resource) => {
+    const byTab = resources.filter((resource) => {
       if (activeTab === 'all') return true;
       if (activeTab === 'clinical') return resource.category === 'clinical';
       if (activeTab === 'community')
@@ -197,7 +155,15 @@ export default function Home() {
       if (activeTab === 'events') return resource.category === 'event';
       return true;
     });
-  }, [resources, activeTab]);
+
+    if (!searchQuery.trim()) return byTab;
+
+    const q = searchQuery.toLowerCase();
+    return byTab.filter((r) =>
+      [r.name, r.description, r.category, r.address]
+        .some((field) => field?.toLowerCase().includes(q))
+    );
+  }, [resources, activeTab, searchQuery]);
 
   // Update temporal status for filtered resources (memoized)
   // Only update if the resource IDs or event times have changed
