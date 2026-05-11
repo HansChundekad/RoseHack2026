@@ -1,13 +1,36 @@
 /**
  * Geocoding utilities
- * 
+ *
  * Handles address to coordinates conversion for the "Starting Location" feature.
  */
 
+const CITY_ABBREVIATIONS: Record<string, string> = {
+  la: 'Los Angeles, CA',
+  sf: 'San Francisco, CA',
+  nyc: 'New York City, NY',
+  ny: 'New York City, NY',
+  chi: 'Chicago, IL',
+  phx: 'Phoenix, AZ',
+  pdx: 'Portland, OR',
+  sea: 'Seattle, WA',
+  lv: 'Las Vegas, NV',
+  sd: 'San Diego, CA',
+  sj: 'San Jose, CA',
+  oak: 'Oakland, CA',
+  bos: 'Boston, MA',
+  dc: 'Washington, DC',
+  atl: 'Atlanta, GA',
+  mia: 'Miami, FL',
+  dtx: 'Dallas, TX',
+  hou: 'Houston, TX',
+  den: 'Denver, CO',
+  slc: 'Salt Lake City, UT',
+};
+
 /**
  * Geocode an address to coordinates using Mapbox Geocoding API
- * 
- * @param address - Address string (e.g., "Los Angeles, CA" or "90001")
+ *
+ * @param address - Address string (e.g., "Los Angeles, CA", "90001", or "la")
  * @param accessToken - Mapbox access token
  * @returns Promise resolving to [lng, lat] or null if not found
  */
@@ -19,11 +42,15 @@ export async function geocodeAddress(
     return null;
   }
 
+  // Expand known city abbreviations before hitting the API
+  const normalized = address.trim().toLowerCase();
+  const expanded = CITY_ABBREVIATIONS[normalized] ?? address;
+
   try {
     const response = await fetch(
       `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(
-        address
-      )}.json?access_token=${accessToken}&limit=1`
+        expanded
+      )}.json?access_token=${accessToken}&limit=1&country=us&types=place,postcode,address,neighborhood`
     );
 
     if (!response.ok) {
@@ -39,7 +66,7 @@ export async function geocodeAddress(
 
     return null;
   } catch (error) {
-    console.error('Geocoding error:', error);
+    console.error('Geocoding error for:', expanded, error);
     return null;
   }
 }
