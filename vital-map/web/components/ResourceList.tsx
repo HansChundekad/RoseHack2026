@@ -180,7 +180,7 @@ export function ResourceList({
   }
 
   return (
-    <div className={`h-full overflow-y-auto px-4 py-4 md:p-4 flex flex-col gap-4 ${className}`}>
+    <div className={`h-full overflow-y-auto overflow-x-hidden px-4 py-4 md:p-4 flex flex-col gap-4 ${className}`}>
       {resources.map((resource) => (
         <div
           key={resource.id}

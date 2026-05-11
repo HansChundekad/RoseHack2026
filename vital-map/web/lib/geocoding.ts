@@ -71,6 +71,62 @@ export async function geocodeAddress(
   }
 }
 
+export interface GeocodeResult {
+  coords: [number, number];
+  normalizedAddress: string;
+}
+
+export interface GeocodeError {
+  error: string;
+}
+
+/**
+ * Geocode an address with confidence validation.
+ * Rejects results with Mapbox relevance < 0.5 (too vague/ambiguous).
+ */
+export async function geocodeWithValidation(
+  address: string,
+  accessToken: string
+): Promise<GeocodeResult | GeocodeError> {
+  const trimmed = address.trim();
+  if (trimmed.length < 5) {
+    return { error: 'Address is too short — please enter a full address.' };
+  }
+  if (!accessToken) {
+    return { error: 'Geocoding service unavailable.' };
+  }
+
+  try {
+    const response = await fetch(
+      `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(trimmed)}.json` +
+        `?access_token=${accessToken}&limit=1&types=address,poi,place`
+    );
+
+    if (!response.ok) {
+      return { error: 'Geocoding service error — please try again.' };
+    }
+
+    const data = await response.json();
+
+    if (!data.features || data.features.length === 0) {
+      return { error: 'Address not found. Try adding a city or zip code.' };
+    }
+
+    const feature = data.features[0];
+
+    if ((feature.relevance ?? 0) < 0.5) {
+      return {
+        error: `Address too ambiguous (matched "${feature.place_name}"). Please be more specific.`,
+      };
+    }
+
+    const [lng, lat] = feature.center as [number, number];
+    return { coords: [lng, lat], normalizedAddress: feature.place_name as string };
+  } catch {
+    return { error: 'Network error — please check your connection.' };
+  }
+}
+
 /**
  * Calculate distance between two coordinates in miles
  * Uses Haversine formula

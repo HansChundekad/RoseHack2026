@@ -61,6 +61,7 @@ export function useResources(): UseResourcesReturn {
   const [resources, setResources] = useState<Resource[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<Error | null>(null);
+  const [refetchTrigger, setRefetchTrigger] = useState(0);
 
   // Load all locations from database + hardcoded hospitals from JSON
   useEffect(() => {
@@ -79,13 +80,41 @@ export function useResources(): UseResourcesReturn {
         }
 
         const dbLocations = (data || []) as Resource[];
-        
+
+        // Fetch user-submitted POIs
+        const { data: userPoiData } = await supabase
+          .from('user_poi')
+          .select('id, name, category, description, address, location, website_url, phone_number, created_at')
+          .order('created_at', { ascending: false });
+
+        const userPois: Resource[] = ((userPoiData as Array<{
+          id: string;
+          name: string;
+          category: string;
+          description: string;
+          address: string;
+          location: string;
+          website_url: string | null;
+          phone_number: string | null;
+          created_at: string;
+        }>) || []).map((poi, idx) => ({
+          id: -(idx + 1),
+          name: poi.name,
+          category: poi.category,
+          description: poi.description,
+          address: poi.address,
+          location: poi.location,
+          website_url: poi.website_url ?? undefined,
+          phone_number: poi.phone_number ?? undefined,
+          created_at: poi.created_at,
+        }));
+
         // Merge with hardcoded hospitals from JSON
         const hardcodedHospitals = hospitalsData as Resource[];
-        const allLocations = [...dbLocations, ...hardcodedHospitals];
-        
+        const allLocations = [...dbLocations, ...userPois, ...hardcodedHospitals];
+
         setResources(allLocations);
-        console.log(`✅ Loaded ${dbLocations.length} locations from database + ${hardcodedHospitals.length} hardcoded hospitals`);
+        console.log(`✅ Loaded ${dbLocations.length} DB + ${userPois.length} user POIs + ${hardcodedHospitals.length} hospitals`);
       } catch (err) {
         const error = err instanceof Error ? err : new Error('Unknown error');
         setError(error);
@@ -99,7 +128,7 @@ export function useResources(): UseResourcesReturn {
     };
 
     loadResources();
-  }, []);
+  }, [refetchTrigger]);
 
   /**
    * Spatial search: Find resources within a map bounding box
@@ -355,9 +384,7 @@ export function useResources(): UseResourcesReturn {
    * For now, this is a placeholder that can be enhanced
    */
   const refetch = useCallback(async () => {
-    // This could be enhanced to remember the last search method
-    // For now, it's a no-op that can be called to trigger re-renders
-    console.log('Refetch called - implement based on last search method');
+    setRefetchTrigger((n) => n + 1);
   }, []);
 
   return {
