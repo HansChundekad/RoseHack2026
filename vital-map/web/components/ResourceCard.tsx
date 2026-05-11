@@ -188,7 +188,7 @@ export function ResourceCard({
               style={{ color: 'var(--tp-primary)' }}
               onClick={(e) => e.stopPropagation()}
             >
-              {resource.website_url}
+              Website
             </a>
           </div>
         )}
