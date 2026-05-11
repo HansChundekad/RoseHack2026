@@ -42,10 +42,7 @@ export function SearchBar({
 
   const handleSubmit = (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    const query = value.trim();
-    if (query) {
-      onSearch(query);
-    }
+    onSearch(value.trim());
   };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -53,7 +50,7 @@ export function SearchBar({
     if (controlledValue === undefined) {
       setLocalValue(newValue);
     }
-    // If controlled, parent handles the change
+    onSearch(newValue); // live filter on every keystroke
   };
 
   return (
