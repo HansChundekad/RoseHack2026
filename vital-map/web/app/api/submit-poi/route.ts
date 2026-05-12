@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { timingSafeEqual } from 'crypto';
 import { createClient } from '@supabase/supabase-js';
 import { geocodeWithValidation } from '@/lib/geocoding';
 
@@ -19,14 +20,30 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Invalid JSON body.' }, { status: 400 });
   }
 
-  const { name, category, description, address, website_url, phone_number } = body as {
+  const { name, category, description, address, website_url, phone_number, password } = body as {
     name?: string;
     category?: string;
     description?: string;
     address?: string;
     website_url?: string;
     phone_number?: string;
+    password?: string;
   };
+
+  // Server-side password re-check (defense in depth)
+  const submitted = Buffer.from(String(password ?? ''));
+  const expected = Buffer.from(process.env.SUBMIT_PASSWORD ?? '');
+  let authorized = false;
+  try {
+    if (submitted.length === expected.length) {
+      authorized = timingSafeEqual(submitted, expected);
+    }
+  } catch {
+    authorized = false;
+  }
+  if (!authorized) {
+    return NextResponse.json({ error: 'Unauthorized.' }, { status: 401 });
+  }
 
   if (!name?.trim()) return NextResponse.json({ error: 'Name is required.' }, { status: 400 });
   if (!description?.trim())
