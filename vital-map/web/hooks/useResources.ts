@@ -20,7 +20,7 @@
  * Hardcoded hospitals are merged into all search results.
  */
 
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
 import type { Resource, BoundingBox } from '@/types/resource';
 import hospitalsData from '@/data/hospitals.json';
@@ -62,6 +62,8 @@ export function useResources(): UseResourcesReturn {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<Error | null>(null);
   const [refetchTrigger, setRefetchTrigger] = useState(0);
+  // Tracks whether a spatial search has taken over — prevents initial full load from overwriting it
+  const spatialSearchActiveRef = useRef(false);
 
   // Load all locations from database + hardcoded hospitals from JSON
   useEffect(() => {
@@ -113,8 +115,11 @@ export function useResources(): UseResourcesReturn {
         const hardcodedHospitals = hospitalsData as Resource[];
         const allLocations = [...dbLocations, ...userPois, ...hardcodedHospitals];
 
-        setResources(allLocations);
-        console.log(`✅ Loaded ${dbLocations.length} DB + ${userPois.length} user POIs + ${hardcodedHospitals.length} hospitals`);
+        // Don't overwrite if a spatial search has already taken over
+        if (!spatialSearchActiveRef.current) {
+          setResources(allLocations);
+          console.log(`✅ Loaded ${dbLocations.length} DB + ${userPois.length} user POIs + ${hardcodedHospitals.length} hospitals`);
+        }
       } catch (err) {
         const error = err instanceof Error ? err : new Error('Unknown error');
         setError(error);
@@ -140,6 +145,7 @@ export function useResources(): UseResourcesReturn {
    */
   const matchLocations = useCallback(
     async (bounds: BoundingBox): Promise<Resource[]> => {
+      spatialSearchActiveRef.current = true;
       setLoading(true);
       setError(null);
 
@@ -157,11 +163,11 @@ export function useResources(): UseResourcesReturn {
         }
 
         const dbResults = (data || []) as Resource[];
-        
-        // Filter hardcoded hospitals by bounding box and merge
-        const hardcodedHospitals = hospitalsData as Resource[];
+
         const { parsePostGISPoint } = await import('@/lib/postgis');
-        
+
+        // Filter hardcoded hospitals by bounding box
+        const hardcodedHospitals = hospitalsData as Resource[];
         const filteredHospitals = hardcodedHospitals.filter((location) => {
           if (!location.location) return false;
           try {
@@ -176,8 +182,51 @@ export function useResources(): UseResourcesReturn {
             return false;
           }
         });
-        
-        const results = [...dbResults, ...filteredHospitals];
+
+        // Fetch and filter user POIs by bounding box
+        const { data: userPoiData } = await supabase
+          .from('user_poi')
+          .select('id, name, category, description, address, location, website_url, phone_number, created_at')
+          .order('created_at', { ascending: false });
+
+        const filteredUserPois: Resource[] = ((userPoiData as Array<{
+          id: string;
+          name: string;
+          category: string;
+          description: string;
+          address: string;
+          location: string;
+          website_url: string | null;
+          phone_number: string | null;
+          created_at: string;
+        }>) || [])
+          .filter((poi) => {
+            if (!poi.location) return false;
+            try {
+              const [lng, lat] = parsePostGISPoint(poi.location);
+              return (
+                lng >= bounds.minLng &&
+                lng <= bounds.maxLng &&
+                lat >= bounds.minLat &&
+                lat <= bounds.maxLat
+              );
+            } catch {
+              return false;
+            }
+          })
+          .map((poi, idx) => ({
+            id: -(idx + 1),
+            name: poi.name,
+            category: poi.category,
+            description: poi.description,
+            address: poi.address,
+            location: poi.location,
+            website_url: poi.website_url ?? undefined,
+            phone_number: poi.phone_number ?? undefined,
+            created_at: poi.created_at,
+          }));
+
+        const results = [...dbResults, ...filteredUserPois, ...filteredHospitals];
         setResources(results);
         return results;
       } catch (err) {
@@ -384,6 +433,7 @@ export function useResources(): UseResourcesReturn {
    * For now, this is a placeholder that can be enhanced
    */
   const refetch = useCallback(async () => {
+    spatialSearchActiveRef.current = false;
     setRefetchTrigger((n) => n + 1);
   }, []);
 
