@@ -71,6 +71,15 @@ export default function Home() {
   const isProgrammaticMove = useRef(false);
   const moveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
+  // Handle starting location cleared — reset map and reload all resources
+  const handleLocationClear = useCallback(() => {
+    setStartingLocation(null);
+    if (mapInstance) {
+      mapInstance.flyTo({ center: [-118.2437, 33.95], zoom: 8, duration: 800 });
+    }
+    refetch();
+  }, [mapInstance, refetch]);
+
   // Handle starting location set
   const handleLocationSet = useCallback(
     (coordinates: [number, number]) => {
@@ -281,6 +290,7 @@ export default function Home() {
       <Header
         onSearch={handleSearch}
         onLocationSet={handleLocationSet}
+        onLocationClear={handleLocationClear}
         mapboxToken={mapboxToken}
         onHeightChange={setHeaderHeight}
       />

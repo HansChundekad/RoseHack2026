@@ -13,6 +13,8 @@ import { cn } from '@/lib/utils';
 interface StartingLocationInputProps {
   /** Callback when location is set */
   onLocationSet: (coordinates: [number, number]) => void;
+  /** Callback when input is cleared */
+  onClear?: () => void;
   /** Mapbox access token for geocoding */
   accessToken: string;
   /** Current location value */
@@ -28,6 +30,7 @@ interface StartingLocationInputProps {
  */
 export function StartingLocationInput({
   onLocationSet,
+  onClear,
   accessToken,
   value: controlledValue,
   className = '',
@@ -65,6 +68,9 @@ export function StartingLocationInput({
     const newValue = e.target.value;
     if (controlledValue === undefined) {
       setLocalValue(newValue);
+    }
+    if (newValue.trim() === '') {
+      onClear?.();
     }
   };
 

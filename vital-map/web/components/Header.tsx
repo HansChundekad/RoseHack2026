@@ -14,6 +14,8 @@ interface HeaderProps {
   onSearch: (query: string) => void;
   /** Callback when starting location is set */
   onLocationSet?: (coordinates: [number, number]) => void;
+  /** Callback when starting location is cleared */
+  onLocationClear?: () => void;
   /** Mapbox access token for geocoding */
   mapboxToken?: string;
   /** Reports the measured header height */
@@ -29,6 +31,7 @@ interface HeaderProps {
 export function Header({
   onSearch,
   onLocationSet,
+  onLocationClear,
   mapboxToken,
   onHeightChange,
 }: HeaderProps) {
@@ -73,6 +76,7 @@ export function Header({
             <div className="flex-1">
               <StartingLocationInput
                 onLocationSet={onLocationSet}
+                onClear={onLocationClear}
                 accessToken={mapboxToken}
               />
             </div>
