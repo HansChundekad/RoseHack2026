@@ -38,6 +38,12 @@ export function ReviewModal({
       return;
     }
 
+    const trimmedComment = comment.trim();
+    if (trimmedComment.length > 2000) {
+      setError('Comment must be 2000 characters or fewer');
+      return;
+    }
+
     setIsSubmitting(true);
     setError(null);
 
@@ -45,7 +51,7 @@ export function ReviewModal({
       const { error: insertError } = await supabase.from('reviews').insert({
         location_id: locationId,
         rating,
-        comment: comment.trim() || null,
+        comment: trimmedComment || null,
       });
 
       if (insertError) throw insertError;
