@@ -3,6 +3,17 @@
 -- Description: Removes duplicate website_urls (keeps newest), then adds UNIQUE constraint
 --              Enables idempotent upserts for scraper reruns
 
+BEGIN;
+
+-- Snapshot duplicates for recovery within this session
+CREATE TEMP TABLE IF NOT EXISTS deleted_dupes AS
+SELECT * FROM locations
+WHERE id NOT IN (
+  SELECT DISTINCT ON (website_url) id
+  FROM locations
+  ORDER BY website_url, created_at DESC NULLS LAST, id DESC
+);
+
 -- Step 1: Remove duplicate website_urls, keeping the most recent entry (by id or created_at)
 -- This CTE finds all duplicates and deletes all but the newest one
 DELETE FROM locations
@@ -26,3 +37,5 @@ COMMENT ON CONSTRAINT unique_website_url ON locations IS
 -- Scraper can now use:
 --   INSERT INTO locations (...) VALUES (...)
 --   ON CONFLICT (website_url) DO UPDATE SET ...
+
+COMMIT;
