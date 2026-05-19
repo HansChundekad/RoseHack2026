@@ -4,13 +4,6 @@ import { createClient } from '@supabase/supabase-js';
 import { geocodeWithValidation } from '@/lib/geocoding';
 import { rateLimit, clientIp } from '@/lib/rateLimit';
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
-
-const MAPBOX_TOKEN = process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN!;
-
 const VALID_CATEGORIES = ['clinical', 'community', 'farm', 'healer', 'event'] as const;
 
 export async function POST(req: NextRequest) {
@@ -18,6 +11,15 @@ export async function POST(req: NextRequest) {
     console.error('SUBMIT_PASSWORD env var is not set');
     return NextResponse.json({ error: 'Server misconfigured.' }, { status: 500 });
   }
+
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  const mapboxToken = process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN;
+  if (!supabaseUrl || !supabaseAnonKey || !mapboxToken) {
+    console.error('Supabase or Mapbox env vars are not set');
+    return NextResponse.json({ error: 'Server misconfigured.' }, { status: 500 });
+  }
+  const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
   const rl = rateLimit(clientIp(req), 10, 3_600_000);
   if (!rl.allowed) {
@@ -98,7 +100,7 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  const geocoded = await geocodeWithValidation(address, MAPBOX_TOKEN);
+  const geocoded = await geocodeWithValidation(address, mapboxToken);
   if ('error' in geocoded) {
     return NextResponse.json({ error: geocoded.error }, { status: 422 });
   }
