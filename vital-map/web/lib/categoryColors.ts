@@ -111,12 +111,7 @@ function normalizeCategory(category: string): ResourceCategory {
  */
 export function getMarkerColor(category: string): string {
   const normalized = normalizeCategory(category);
-  const color = categoryColors[normalized]?.marker || 'bg-gray-500';
-  // Debug: see category mapping in console
-  if (typeof window !== 'undefined') {
-    console.log(`[CategoryColors] Marker "${category}" -> "${normalized}" -> "${color}"`);
-  }
-  return color;
+  return categoryColors[normalized]?.marker || 'bg-gray-500';
 }
 
 /**
@@ -124,12 +119,7 @@ export function getMarkerColor(category: string): string {
  */
 export function getBadgeColor(category: string): string {
   const normalized = normalizeCategory(category);
-  const color = categoryColors[normalized]?.badge || 'bg-gray-600 text-white';
-  // Debug logging - remove after testing
-  if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
-    console.log(`[CategoryColors] Badge "${category}" -> "${normalized}" -> "${color}"`);
-  }
-  return color;
+  return categoryColors[normalized]?.badge || 'bg-gray-600 text-white';
 }
 
 /**
