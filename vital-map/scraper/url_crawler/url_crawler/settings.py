@@ -29,8 +29,7 @@ RETRY_TIMES = 2
 DOWNLOAD_TIMEOUT = 20
 
 # Obey robots.txt rules
-# ROBOTSTXT_OBEY = True
-ROBOTSTXT_OBEY = False
+ROBOTSTXT_OBEY = True
 
 
 # Disable cookies (enabled by default)

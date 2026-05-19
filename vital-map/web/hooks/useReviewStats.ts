@@ -10,6 +10,21 @@ interface ReviewStats {
   };
 }
 
+function computeStats(rows: { location_id: number; rating: number }[]): ReviewStats {
+  const stats: ReviewStats = {};
+  for (const row of rows) {
+    const id = row.location_id;
+    if (!stats[id]) stats[id] = { averageRating: 0, reviewCount: 0 };
+    stats[id].reviewCount += 1;
+    stats[id].averageRating += row.rating;
+  }
+  for (const id in stats) {
+    const key = Number(id); // ReviewStats is keyed by number; iterating yields strings
+    stats[key].averageRating = stats[key].averageRating / stats[key].reviewCount;
+  }
+  return stats;
+}
+
 /**
  * Custom hook to fetch and calculate review statistics for all locations
  * Returns a map of location_id to {averageRating, reviewCount}
@@ -32,33 +47,7 @@ export function useReviewStats() {
 
         if (fetchError) throw fetchError;
 
-        // Calculate statistics per location
-        const stats: ReviewStats = {};
-
-        if (data) {
-          data.forEach((review) => {
-            const locId = review.location_id;
-
-            if (!stats[locId]) {
-              stats[locId] = {
-                averageRating: 0,
-                reviewCount: 0,
-              };
-            }
-
-            stats[locId].reviewCount += 1;
-            stats[locId].averageRating += review.rating;
-          });
-
-          // Calculate averages
-          Object.keys(stats).forEach((locId) => {
-            const numLocId = Number(locId);
-            stats[numLocId].averageRating =
-              stats[numLocId].averageRating / stats[numLocId].reviewCount;
-          });
-        }
-
-        setReviewStats(stats);
+        setReviewStats(computeStats(data ?? []));
       } catch (err) {
         console.error('Error fetching review stats:', err);
         setError(err instanceof Error ? err.message : 'Failed to fetch reviews');
@@ -76,27 +65,8 @@ export function useReviewStats() {
       .from('reviews')
       .select('location_id, rating');
 
-    if (!fetchError && data) {
-      const stats: ReviewStats = {};
-
-      data.forEach((review) => {
-        const locId = review.location_id;
-
-        if (!stats[locId]) {
-          stats[locId] = { averageRating: 0, reviewCount: 0 };
-        }
-
-        stats[locId].reviewCount += 1;
-        stats[locId].averageRating += review.rating;
-      });
-
-      Object.keys(stats).forEach((locId) => {
-        const numLocId = Number(locId);
-        stats[numLocId].averageRating =
-          stats[numLocId].averageRating / stats[numLocId].reviewCount;
-      });
-
-      setReviewStats(stats);
+    if (!fetchError) {
+      setReviewStats(computeStats(data ?? []));
     }
 
     setIsLoading(false);

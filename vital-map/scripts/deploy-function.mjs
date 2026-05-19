@@ -13,9 +13,16 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
 // Supabase configuration
-const SUPABASE_URL = 'https://izkjkpnozgqcmqgfhixv.supabase.co';
-const SUPABASE_SERVICE_KEY =
-  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Iml6a2prcG5vemdxY21xZ2ZoaXh2Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2OTI4ODIyMSwiZXhwIjoyMDg0ODY0MjIxfQ.a4i8pttD4jZGmHVVlzyBiSMQqrrPceZxmaOxDRrZpBA';
+const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL;
+if (!SUPABASE_URL) {
+  console.error('NEXT_PUBLIC_SUPABASE_URL or SUPABASE_URL env var is required');
+  process.exit(1);
+}
+const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY;
+if (!SUPABASE_SERVICE_KEY) {
+  console.error('SUPABASE_SERVICE_KEY env var is required');
+  process.exit(1);
+}
 
 async function deployFunction() {
   console.log('🚀 Deploying database function to Supabase...\n');

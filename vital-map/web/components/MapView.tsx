@@ -81,8 +81,7 @@ function MapView({
         map.current = null;
       }
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [accessToken]); // eslint-disable-line react-hooks/exhaustive-deps -- initialCenter/initialZoom intentionally omitted
 
   // Memoize resources key to prevent unnecessary effect triggers
   const resourcesKey = useMemo(() => {
@@ -131,21 +130,18 @@ function MapView({
 
         markersRef.current.push(marker);
         markerElementsRef.current.set(resource.id, markerElement);
-      } catch (error) {
-        console.error(
-          `Error creating marker for resource ${resource.id}:`,
-          error
-        );
+      } catch {
+        // Skip resources with unparseable locations
       }
     });
   }, [resourcesKey, isMapReady, onMarkerClick, onMarkerHover]);
 
   // Highlight marker when hoveredResourceId changes (from card hover)
   useEffect(() => {
-    markerElementsRef.current.forEach((el, id) => {
+    const setSelected = (el: HTMLElement, selected: boolean) => {
       const dot = el.querySelector('.marker-dot') as HTMLElement | null;
       if (!dot) return;
-      if (id === hoveredResourceId) {
+      if (selected) {
         dot.style.transform = 'scale(1.5)';
         dot.style.boxShadow = '0 0 0 4px rgba(22, 163, 74, 0.3)';
         dot.style.zIndex = '10';
@@ -154,7 +150,15 @@ function MapView({
         dot.style.boxShadow = '';
         dot.style.zIndex = '';
       }
+    };
+
+    markerElementsRef.current.forEach((el, id) => {
+      setSelected(el, id === hoveredResourceId);
     });
+
+    return () => {
+      markerElementsRef.current.forEach((el) => setSelected(el, false));
+    };
   }, [hoveredResourceId]);
 
   return (

@@ -56,3 +56,5 @@ htmlcov/
 
 # Local reference docs
 CODEBASE_OVERVIEW.md
+
+.claude

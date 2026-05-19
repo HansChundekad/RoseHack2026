@@ -2,7 +2,7 @@
 
 /**
  * Main application page
- * 
+ *
  * Implements the full-viewport split-view layout with:
  * - Header with search and tabs (fixed at top)
  * - Left sidebar (40%) for resource list
@@ -23,6 +23,11 @@ import { AddPoiModal } from '@/components/AddPoiModal';
 import { cn } from '@/lib/utils';
 import type mapboxgl from 'mapbox-gl';
 import type { Resource } from '@/types/resource';
+
+const DEFAULT_MAP_CENTER: [number, number] = [-118.2437, 33.95];
+const CATEGORY_ORDER: Record<string, number> = {
+  clinical: 1, community: 2, farm: 3, healer: 4, event: 5,
+};
 
 export default function Home() {
   const [mapInstance, setMapInstance] = useState<mapboxgl.Map | null>(null);
@@ -69,13 +74,12 @@ export default function Home() {
 
   // Track if map movement is programmatic (to prevent infinite loops)
   const isProgrammaticMove = useRef(false);
-  const moveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Handle starting location cleared — reset map and reload all resources
   const handleLocationClear = useCallback(() => {
     setStartingLocation(null);
     if (mapInstance) {
-      mapInstance.flyTo({ center: [-118.2437, 33.95], zoom: 8, duration: 800 });
+      mapInstance.flyTo({ center: DEFAULT_MAP_CENTER, zoom: 8, duration: 800 });
     }
     refetch();
   }, [mapInstance, refetch]);
@@ -122,37 +126,6 @@ export default function Home() {
 
       // Initial resources are loaded by get_all_locations on mount.
       // No need to call matchLocations here — it would overwrite with a subset.
-
-      // Update resources when map moves (throttled to prevent excessive updates)
-      // DISABLED TEMPORARILY - Only update on initial load and manual search
-      // Uncomment below to re-enable auto-update on map movement
-      /*
-      map.on('moveend', () => {
-        // Skip if this was a programmatic move (like flyTo)
-        if (isProgrammaticMove.current) {
-          isProgrammaticMove.current = false;
-          return;
-        }
-
-        // Clear any pending timeout
-        if (moveTimeoutRef.current) {
-          clearTimeout(moveTimeoutRef.current);
-        }
-
-        // Throttle: wait 1000ms after map stops moving before fetching
-        moveTimeoutRef.current = setTimeout(() => {
-          const newBounds = map.getBounds();
-          if (newBounds) {
-            matchLocations({
-              minLng: newBounds.getWest(),
-              minLat: newBounds.getSouth(),
-              maxLng: newBounds.getEast(),
-              maxLat: newBounds.getNorth(),
-            });
-          }
-        }, 1000);
-      });
-      */
     },
     [matchLocations, startingLocation]
   );
@@ -216,23 +189,14 @@ export default function Home() {
       };
     });
 
-    // Sort by distance (ascending), then by category for same distance
-    const categoryOrder: Record<string, number> = {
-      clinical: 1,
-      community: 2,
-      farm: 3,
-      healer: 4,
-      event: 5,
-    };
-
     resourcesWithDistance.sort((a, b) => {
       // Primary sort: distance
       if (a.distance !== b.distance) {
         return a.distance - b.distance;
       }
       // Secondary sort: category
-      const categoryA = categoryOrder[a.resource.category] || 99;
-      const categoryB = categoryOrder[b.resource.category] || 99;
+      const categoryA = CATEGORY_ORDER[a.resource.category] || 99;
+      const categoryB = CATEGORY_ORDER[b.resource.category] || 99;
       return categoryA - categoryB;
     });
 

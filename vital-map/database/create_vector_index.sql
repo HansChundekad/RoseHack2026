@@ -10,12 +10,12 @@ ANALYZE locations;
 DROP INDEX IF EXISTS idx_locations_embedding;
 
 -- Create IVFFlat index for cosine similarity search
--- lists = 1 (reduced to fit within maintenance_work_mem constraint)
+-- lists = 10 optimized for current dataset size (lists ≈ sqrt(row_count))
 -- Note: For production with more rows, may need to increase Supabase maintenance_work_mem
 CREATE INDEX idx_locations_embedding
   ON locations
   USING ivfflat (embedding vector_cosine_ops)
-  WITH (lists = 1);
+  WITH (lists = 10);
 
 -- Add documentation comment
 COMMENT ON INDEX idx_locations_embedding IS 'IVFFlat index for vector similarity search using cosine distance (<=> operator). Lists=10 optimized for current dataset size. Adjust if data grows: lists ≈ sqrt(row_count).';

@@ -10,7 +10,7 @@ import { LoadingSkeleton } from './LoadingSkeleton';
 import type { Resource } from '@/types/resource';
 import type mapboxgl from 'mapbox-gl';
 import { parsePostGISPoint } from '@/lib/postgis';
-import { useMemo, useEffect, useRef } from 'react';
+import { useMemo, useEffect, useRef, useCallback } from 'react';
 
 interface ReviewStats {
   [locationId: number]: {
@@ -70,6 +70,22 @@ export function ResourceList({
   className = '',
 }: ResourceListProps) {
   const cardRefs = useRef<Map<number, HTMLDivElement>>(new Map());
+
+  // Stable ref callback so identity doesn't change between renders
+  const setCardRef = useCallback(
+    (id: number) => (el: HTMLDivElement | null) => {
+      if (el) cardRefs.current.set(id, el);
+      else cardRefs.current.delete(id);
+    },
+    []
+  );
+
+  // Clear the ref map on unmount to avoid stale references
+  useEffect(() => {
+    return () => {
+      cardRefs.current.clear();
+    };
+  }, []);
 
   // Scroll to selected card when selectedResourceId changes
   useEffect(() => {
@@ -184,10 +200,7 @@ export function ResourceList({
       {resources.map((resource) => (
         <div
           key={resource.id}
-          ref={(el) => {
-            if (el) cardRefs.current.set(resource.id, el);
-            else cardRefs.current.delete(resource.id);
-          }}
+          ref={setCardRef(resource.id)}
           onMouseEnter={() => onCardHover?.(resource.id)}
           onMouseLeave={() => onCardHover?.(null)}
         >

@@ -54,11 +54,9 @@ export function StartingLocationInput({
 
       if (coordinates) {
         onLocationSet(coordinates);
-      } else {
-        console.warn('Could not geocode address:', address);
       }
-    } catch (error) {
-      console.error('Geocoding error:', error);
+    } catch {
+      // Geocoding failed; input remains unchanged so user can retry
     } finally {
       setIsGeocoding(false);
     }
