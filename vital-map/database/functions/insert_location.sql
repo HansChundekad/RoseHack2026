@@ -115,11 +115,11 @@ BEGIN
 END;
 $$;
 
--- Grant execute permission to authenticated and anon users
+-- Grant execute permission to authenticated users only. Anonymous POI submissions go through
+-- /api/submit-poi which uses the anon key combined with a server-side password check.
 -- The function uses SECURITY DEFINER so it runs with owner privileges
 -- This is safe because all inputs are validated inside the function
 GRANT EXECUTE ON FUNCTION insert_location(text, text, text, text, text, text, text, vector) TO authenticated;
-GRANT EXECUTE ON FUNCTION insert_location(text, text, text, text, text, text, text, vector) TO anon;
 
 -- Add documentation
 COMMENT ON FUNCTION insert_location(text, text, text, text, text, text, text, vector) IS
