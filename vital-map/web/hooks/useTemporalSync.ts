@@ -5,7 +5,7 @@
  * Polls or subscribes to event updates to show "happening now" status.
  */
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useCallback } from 'react';
 import type { Resource } from '@/types/resource';
 
 interface UseTemporalSyncReturn {
@@ -67,17 +67,6 @@ export function useTemporalSync(): UseTemporalSyncReturn {
     },
     []
   );
-
-  // Update happening now resources when temporal status changes
-  useEffect(() => {
-    // This effect can be extended to:
-    // 1. Poll backend for event updates
-    // 2. Subscribe to Supabase real-time changes
-    // 3. Integrate with municipal calendar APIs
-    
-    // For now, this is a placeholder that can be called
-    // when resources are loaded or updated
-  }, []);
 
   return {
     happeningNow,
