@@ -1,13 +1,8 @@
 import scrapy
 import re
-import json
-import os
 from pathlib import Path
 from urllib.parse import urlparse
 
-# #region agent log
-LOG_PATH = Path(__file__).parent.parent.parent.parent.parent / ".cursor" / "debug.log"
-# #endregion
 
 class LinkSpider(scrapy.Spider):
     name = "link_spider"
@@ -31,9 +26,9 @@ class LinkSpider(scrapy.Spider):
 
     # Safety: stay on the same domain
     allowed_domains = [urlparse(u).netloc for u in start_urls]
-    
+
     start_url_set = set(start_urls)
-    
+
     DENY_KEYWORDS = [
         "privacy",
         "disclaimer",
@@ -54,14 +49,12 @@ class LinkSpider(scrapy.Spider):
         "claim",
         "services",
         "service",
-        "featured", 
-        "articles", 
+        "articles",
         "library",
         "state",
         "magazines",
         "schools"
     ]
-
 
     ADDRESS_KEYWORDS = [
         "street", "st.", "avenue", "ave", "road", "rd.", "boulevard", "blvd",
@@ -72,68 +65,55 @@ class LinkSpider(scrapy.Spider):
         r"\d{1,5}\s+\w+(\s\w+)*\s+(st|street|rd|road|ave|avenue|blvd|boulevard|ln|lane)\b",
         re.I
     )
-    
+
     def count_addresses(self, response):
         text = " ".join(response.css("body ::text").getall())
         count = len(self.ADDRESS_REGEX.findall(text))
-        # #region agent log
-        try:
-            with open(LOG_PATH, 'a', encoding='utf-8') as f:
-                f.write(json.dumps({"sessionId": "debug-session", "runId": "init", "hypothesisId": "C", "location": "link_spider.py:count_addresses", "message": "Address count calculated", "data": {"url": response.url, "address_count": count, "text_length": len(text)}, "timestamp": int(__import__('time').time() * 1000)}) + "\n")
-        except: pass
-        # #endregion
+        self.logger.info(
+            "Address count calculated: url=%s count=%d text_length=%d",
+            response.url, count, len(text)
+        )
         return count
 
     def has_possible_address(self, response):
         # Get all visible text
         text = " ".join(response.css("body ::text").getall()).lower()
-        
+
         # Check for keywords
         if any(k in text for k in self.ADDRESS_KEYWORDS):
             return True
-        
+
         # Check for street number + type pattern
         if self.ADDRESS_REGEX.search(text):
             return True
-        
+
         # Check for <address> tag
         if response.css("address"):
             return True
-        
+
         return False
 
-
     def parse(self, response):
-        # #region agent log
-        try:
-            with open(LOG_PATH, 'a', encoding='utf-8') as f:
-                f.write(json.dumps({"sessionId": "debug-session", "runId": "init", "hypothesisId": "A", "location": "link_spider.py:parse", "message": "parse() called", "data": {"url": response.url, "is_start_url": response.url in self.start_url_set}, "timestamp": int(__import__('time').time() * 1000)}) + "\n")
-        except: pass
-        # #endregion
-        
+        self.logger.info(
+            "parse() called: url=%s is_start_url=%s",
+            response.url, response.url in self.start_url_set
+        )
+
         if response.url not in self.start_url_set:
             address_count = self.count_addresses(response)
-            # #region agent log
-            try:
-                with open(LOG_PATH, 'a', encoding='utf-8') as f:
-                    f.write(json.dumps({"sessionId": "debug-session", "runId": "init", "hypothesisId": "C", "location": "link_spider.py:parse", "message": "Checking yield condition", "data": {"url": response.url, "address_count": address_count, "will_yield": address_count < 7}, "timestamp": int(__import__('time').time() * 1000)}) + "\n")
-            except: pass
-            # #endregion
-            if address_count < 7:
-                # #region agent log
-                try:
-                    with open(LOG_PATH, 'a', encoding='utf-8') as f:
-                        f.write(json.dumps({"sessionId": "debug-session", "runId": "init", "hypothesisId": "B", "location": "link_spider.py:parse", "message": "Yielding item", "data": {"url": response.url}, "timestamp": int(__import__('time').time() * 1000)}) + "\n")
-                except: pass
-                # #endregion
+            will_yield = address_count < 7
+            self.logger.info(
+                "Checking yield condition: url=%s address_count=%d will_yield=%s",
+                response.url, address_count, will_yield
+            )
+            if will_yield:
+                self.logger.info("Yielding item: url=%s", response.url)
                 yield {"url": response.url}
             else:
-                # #region agent log
-                try:
-                    with open(LOG_PATH, 'a', encoding='utf-8') as f:
-                        f.write(json.dumps({"sessionId": "debug-session", "runId": "init", "hypothesisId": "C", "location": "link_spider.py:parse", "message": "Skipping yield - too many addresses", "data": {"url": response.url, "address_count": address_count}, "timestamp": int(__import__('time').time() * 1000)}) + "\n")
-                except: pass
-                # #endregion
+                self.logger.info(
+                    "Skipping yield - too many addresses: url=%s address_count=%d",
+                    response.url, address_count
+                )
 
         # Always keep crawling
         links_found = 0
@@ -151,32 +131,19 @@ class LinkSpider(scrapy.Spider):
                 continue
 
             yield scrapy.Request(full_url, callback=self.parse)
-        
-        # #region agent log
-        try:
-            with open(LOG_PATH, 'a', encoding='utf-8') as f:
-                f.write(json.dumps({"sessionId": "debug-session", "runId": "init", "hypothesisId": "D", "location": "link_spider.py:parse", "message": "Link crawling stats", "data": {"url": response.url, "links_found": links_found, "links_filtered": links_filtered, "links_followed": links_found - links_filtered}, "timestamp": int(__import__('time').time() * 1000)}) + "\n")
-        except: pass
-        # #endregion
-    
+
+        self.logger.info(
+            "Link crawling stats: url=%s found=%d filtered=%d followed=%d",
+            response.url, links_found, links_filtered, links_found - links_filtered
+        )
+
     def closed(self, reason):
-        # #region agent log
-        try:
-            # Check if output file exists
-            spider_dir = Path(__file__).parent
-            relative_path = Path("../../../urls.json")
-            absolute_path = (spider_dir / relative_path).resolve()
-            file_exists = absolute_path.exists()
-            file_size = absolute_path.stat().st_size if file_exists else 0
-            
-            with open(LOG_PATH, 'a', encoding='utf-8') as f:
-                f.write(json.dumps({"sessionId": "debug-session", "runId": "init", "hypothesisId": "E", "location": "link_spider.py:closed", "message": "Spider closed", "data": {"reason": str(reason), "output_path_relative": "../../../urls.json", "output_path_absolute": str(absolute_path), "file_exists": file_exists, "file_size": file_size}, "timestamp": int(__import__('time').time() * 1000)}) + "\n")
-        except Exception as e:
-            try:
-                with open(LOG_PATH, 'a', encoding='utf-8') as f:
-                    f.write(json.dumps({"sessionId": "debug-session", "runId": "init", "hypothesisId": "E", "location": "link_spider.py:closed", "message": "Spider closed - error checking file", "data": {"reason": str(reason), "error": str(e)}, "timestamp": int(__import__('time').time() * 1000)}) + "\n")
-            except: pass
-        # #endregion
-
-
-
+        spider_dir = Path(__file__).parent
+        relative_path = Path("../../../urls.json")
+        absolute_path = (spider_dir / relative_path).resolve()
+        file_exists = absolute_path.exists()
+        file_size = absolute_path.stat().st_size if file_exists else 0
+        self.logger.info(
+            "Spider closed: reason=%s output_path=%s file_exists=%s file_size=%d",
+            reason, absolute_path, file_exists, file_size
+        )
