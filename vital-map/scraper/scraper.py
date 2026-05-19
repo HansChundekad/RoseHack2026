@@ -6,6 +6,7 @@ Scrapes URLs using Jina.ai API and extracts structured information
 using OpenAI GPT-4o-mini (cheapest and fastest model). Outputs to Supabase.
 """
 
+import logging
 import os
 import sys
 import json
@@ -13,6 +14,8 @@ import argparse
 from pathlib import Path
 from typing import Dict, Optional, Any, List
 from urllib.parse import urlparse
+
+logger = logging.getLogger(__name__)
 
 import requests
 from openai import OpenAI
@@ -275,8 +278,9 @@ def generate_embedding(data: Dict[str, Any]) -> Optional[List[float]]:
         
         embedding = response.data[0].embedding
         return embedding
-        
-    except Exception as e:
+
+    except Exception:
+        logger.exception("Failed to generate embedding")
         return None
 
 
@@ -477,6 +481,7 @@ Web content to extract from:
                     try:
                         extracted_data[field] = generate_embedding(extracted_data)
                     except Exception:
+                        logger.exception("Failed to generate embedding during field init")
                         extracted_data[field] = None
                 else:
                     extracted_data[field] = None
@@ -518,6 +523,7 @@ Web content to extract from:
             embedding = generate_embedding(extracted_data)
             extracted_data["embedding"] = embedding
         except Exception:
+            logger.exception("Failed to generate embedding for extracted entry")
             extracted_data["embedding"] = None
 
         return extracted_data
@@ -525,7 +531,8 @@ Web content to extract from:
     except json.JSONDecodeError as e:
         raise ValueError(f"Failed to parse JSON from LLM response: {str(e)}") from e
     except Exception as e:
-        raise Exception(f"OpenAI API error: {str(e)}") from e
+        logger.exception("OpenAI API error during extraction")
+        raise RuntimeError(f"OpenAI API error: {str(e)}") from e
 
 
 def is_valid_entry(data: Dict[str, Any]) -> bool:
@@ -589,7 +596,8 @@ def save_to_supabase(data: Dict[str, Any]) -> bool:
 
     except Exception as e:
         print(f"❌ Error saving to Supabase: {str(e)}", file=sys.stderr)
-        raise
+        logger.exception("Failed to save record to Supabase")
+        return False
 
 
 def load_urls_from_file(file_path: Path) -> tuple[list[str], dict]:
@@ -650,13 +658,11 @@ def save_urls_to_file(file_path: Path, remaining_urls: list[str], original_struc
     try:
         # Always save in new format: [{"url": "..."}, ...]
         data = [{"url": url} for url in remaining_urls]
-        
+
         with open(file_path, "w", encoding="utf-8") as f:
             json.dump(data, f, indent=2, ensure_ascii=False)
-        
-        pass  # URLs file updated
-    except Exception:
-        pass  # Failed to update URLs file
+    except OSError:
+        logger.exception("Failed to write updated URLs back to %s", file_path)
 
 
 def process_url(url: str) -> str:
