@@ -45,6 +45,9 @@ SUPABASE_SERVICE_ROLE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
 # Input URLs file path
 URLS_FILE = Path(__file__).parent / "urls.json"
 
+# Default output file (can be overridden via --output CLI flag)
+OUTPUT_FILE = 'scraped_data.json'
+
 # Initialize Supabase client (lazy - created when needed)
 _supabase_client: Optional[Client] = None
 
