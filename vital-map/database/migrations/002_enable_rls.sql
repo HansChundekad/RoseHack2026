@@ -30,12 +30,15 @@ CREATE POLICY "reviews_select_public"
     TO anon, authenticated
     USING (true);
 
--- Allow everyone (anon + authenticated) to INSERT reviews
+-- Allow everyone (anon + authenticated) to INSERT reviews — with input bounds
 CREATE POLICY "reviews_insert_public"
     ON reviews
     FOR INSERT
     TO anon, authenticated
-    WITH CHECK (true);
+    WITH CHECK (
+      rating BETWEEN 1 AND 5
+      AND (comment IS NULL OR length(comment) <= 2000)
+    );
 
 -- No UPDATE/DELETE policies = denied by default
 
