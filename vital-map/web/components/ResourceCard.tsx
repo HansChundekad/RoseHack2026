@@ -73,8 +73,7 @@ export function ResourceCard({
         lat,
         lng
       );
-    } catch (error) {
-      console.error('Distance calculation error:', error);
+    } catch {
       // Distance calculation failed, continue without it
     }
   }
@@ -104,10 +103,11 @@ export function ResourceCard({
       className={cn(
         'rounded-2xl border border-gray-100 shadow-sm',
         'hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 ease-out cursor-pointer',
-        isSelected && 'ring-2 ring-(--tp-primary) ring-offset-2',
+        isSelected && 'ring-2 ring-offset-2',
         isHovered && 'shadow-md -translate-y-0.5 border-[var(--tp-primary)]',
         className
       )}
+      style={isSelected ? { '--tw-ring-color': 'var(--tp-primary)' } as React.CSSProperties : undefined}
       onClick={() => onClick?.(resource)}
     >
       <CardHeader className="p-6 pb-0">
@@ -228,7 +228,6 @@ export function ResourceCard({
         isOpen={isReviewModalOpen}
         onClose={() => setIsReviewModalOpen(false)}
         onSuccess={() => {
-          console.log('Review submitted successfully for:', resource.name);
           onReviewSubmitted?.();
         }}
       />
