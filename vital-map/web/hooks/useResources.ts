@@ -25,6 +25,17 @@ import { supabase } from '@/lib/supabase';
 import type { Resource, BoundingBox } from '@/types/resource';
 import hospitalsData from '@/data/hospitals.json';
 
+function isValidResource(r: unknown): r is Resource {
+  if (!r || typeof r !== 'object') return false;
+  const o = r as Record<string, unknown>;
+  return (
+    typeof o.id === 'number' &&
+    typeof o.name === 'string' &&
+    typeof o.category === 'string' &&
+    typeof o.location === 'string'
+  );
+}
+
 interface UseResourcesReturn {
   /** Array of resources currently loaded */
   resources: Resource[];
@@ -81,7 +92,10 @@ export function useResources(): UseResourcesReturn {
           throw rpcError;
         }
 
-        const dbLocations = (data || []) as Resource[];
+        const raw = (data || []) as unknown[];
+        const dbLocations = raw.filter(isValidResource);
+        const dropped = raw.length - dbLocations.length;
+        if (dropped > 0) console.warn(`useResources: dropped ${dropped} invalid row(s) from get_all_locations`);
 
         // Fetch user-submitted POIs
         const { data: userPoiData } = await supabase
@@ -118,7 +132,6 @@ export function useResources(): UseResourcesReturn {
         // Don't overwrite if a spatial search has already taken over
         if (!spatialSearchActiveRef.current) {
           setResources(allLocations);
-          console.log(`✅ Loaded ${dbLocations.length} DB + ${userPois.length} user POIs + ${hardcodedHospitals.length} hospitals`);
         }
       } catch (err) {
         const error = err instanceof Error ? err : new Error('Unknown error');
@@ -162,7 +175,12 @@ export function useResources(): UseResourcesReturn {
           throw rpcError;
         }
 
-        const dbResults = (data || []) as Resource[];
+        const rawMatch = (data || []) as unknown[];
+        const dbResults = rawMatch.filter(isValidResource);
+        const droppedMatch = rawMatch.length - dbResults.length;
+        if (droppedMatch > 0) {
+          console.warn(`useResources: dropped ${droppedMatch} invalid row(s) from match_locations`);
+        }
 
         const { parsePostGISPoint } = await import('@/lib/postgis');
 
@@ -277,14 +295,18 @@ export function useResources(): UseResourcesReturn {
 
         if (rpcError) throw rpcError;
 
-        const dbResults = (data || []) as Resource[];
-        
+        const rawSemantic = (data || []) as unknown[];
+        const dbResults = rawSemantic.filter(isValidResource);
+        const droppedSemantic = rawSemantic.length - dbResults.length;
+        if (droppedSemantic > 0) {
+          console.warn(`useResources: dropped ${droppedSemantic} invalid row(s) from semantic_search`);
+        }
+
         // Add hardcoded hospitals (no semantic filtering for them)
         const hardcodedHospitals = hospitalsData as Resource[];
         const results = [...dbResults, ...hardcodedHospitals];
-        
+
         setResources(results);
-        console.log(`✅ Semantic search returned ${dbResults.length} results from DB + ${hardcodedHospitals.length} hardcoded hospitals`);
         return results;
       } catch (err) {
         const error = err instanceof Error ? err : new Error('Unknown error');
@@ -351,8 +373,13 @@ export function useResources(): UseResourcesReturn {
 
         if (rpcError) throw rpcError;
 
-        const dbResults = (data || []) as Resource[];
-        
+        const rawHybrid = (data || []) as unknown[];
+        const dbResults = rawHybrid.filter(isValidResource);
+        const droppedHybrid = rawHybrid.length - dbResults.length;
+        if (droppedHybrid > 0) {
+          console.warn(`useResources: dropped ${droppedHybrid} invalid row(s) from hybrid_search`);
+        }
+
         // Filter hardcoded hospitals by distance and merge
         const hardcodedHospitals = hospitalsData as Resource[];
         const { parsePostGISPoint } = await import('@/lib/postgis');
@@ -376,7 +403,6 @@ export function useResources(): UseResourcesReturn {
         
         const results = [...dbResults, ...filteredHospitals];
         setResources(results);
-        console.log(`✅ Hybrid search returned ${dbResults.length} results from DB + ${filteredHospitals.length} hardcoded hospitals`);
         return results;
       } catch (err) {
         const error = err instanceof Error ? err : new Error('Unknown error');
@@ -411,8 +437,13 @@ export function useResources(): UseResourcesReturn {
         throw rpcError;
       }
 
-      const dbResults = (data || []) as Resource[];
-      
+      const rawNow = (data || []) as unknown[];
+      const dbResults = rawNow.filter(isValidResource);
+      const droppedNow = rawNow.length - dbResults.length;
+      if (droppedNow > 0) {
+        console.warn(`useResources: dropped ${droppedNow} invalid row(s) from get_happening_now_events`);
+      }
+
       // Hardcoded hospitals don't have events, so just return DB results
       const results = dbResults;
       setResources(results);
