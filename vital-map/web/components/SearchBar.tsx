@@ -5,7 +5,7 @@
  * Supports natural language search that will be converted to vector embeddings.
  */
 
-import { useState, FormEvent } from 'react';
+import { useState, useEffect, FormEvent } from 'react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Search } from 'lucide-react';
@@ -40,6 +40,12 @@ export function SearchBar({
   // Use controlled value if provided, otherwise use local state
   const value = controlledValue !== undefined ? controlledValue : localValue;
 
+  // Debounce keystrokes so callers aren't called on every character
+  useEffect(() => {
+    const id = setTimeout(() => onSearch(value), 200);
+    return () => clearTimeout(id);
+  }, [value, onSearch]);
+
   const handleSubmit = (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     onSearch(value.trim());
@@ -50,7 +56,6 @@ export function SearchBar({
     if (controlledValue === undefined) {
       setLocalValue(newValue);
     }
-    onSearch(newValue); // live filter on every keystroke
   };
 
   return (
